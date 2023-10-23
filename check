@@ -1,0 +1,110 @@
+import pandas as pd
+import json
+import azure.cosmos.cosmos_client as cosmos_client
+import azure.cosmos.errors as errors
+import azure.cosmos.documents as documents
+import azure.cosmos.http_constants as http_constants
+
+# Configuration
+database_name = "SSDS"
+container_name = "SSDS COSMOS"
+endpoint = "https://npee-usc-eff-dev-cosmosdb-sql-01.documents.azure.com:443/"
+partition_key = "tzTEKgbW×wODJVnSut9iMgep5Kds7cq9HbvG7WKr7KSPyJ5PAYQk4wbK2bXsM1Ry3]ZbFT6JL6YLACDbQwK0pg=="
+
+# Load config file
+with open("/home/azureuser/config.json") as config_file:
+    config = json.load(config_file)
+
+class ReadCosmos:
+
+    @staticmethod
+    def client_init():
+        client = cosmos_client.CosmosClient(
+            url_connection=config["endpoint"],
+            auth={"masterKey": config["partition_key"]}
+        )
+        return client
+
+    @staticmethod
+    def create_cosmosdb(client, database_name):
+        try:
+            client.CreateDatabase({'id': database_name})
+            print("Database %s created" % database_name)
+        except errors.HTTPFailure as e:
+            if e.status_code == http_constants.StatusCodes.CONFLICT:
+                print("Database %s already exists" % database_name)
+            else:
+                raise e
+
+    @staticmethod
+    def create_container(client, database_name, container_name, partition_key):
+        database_link = "dbs/%s" % database_name
+        container_definition = {
+            'id': container_name,
+            'partitionKey': {
+                'paths': ['/partkey'],
+                'kind': documents.PartitionKind.Hash
+            }
+        }
+        try:
+            container = client.CreateContainer(database_link, container_definition)
+            print("Container %s created" % container_name)
+        except errors.HTTPFailure as e:
+            if e.status_code == http_constants.StatusCodes.CONFLICT:
+                print("Container %s already exists" % container_name)
+            else:
+                raise e
+
+    @staticmethod
+    def insert_data(client, database_name, container_name, df):
+        collection_link = "dbs/%s/colls/%s" % (database_name, container_name)
+        for i in range(0, df.shape[0]):
+            data_dict = df.iloc[i].to_dict()
+            client.UpsertItem(collection_link, data_dict)
+        print("Records inserted successfully.")
+
+    @staticmethod
+    def query_data(client, database_name, container_name, query):
+        dflist = []
+        collection_link = "dbs/%s/colls/%s" % (database_name, container_name)
+        for item in client.QueryItems(collection_link, query, {'enableCrossPartitionQuery': True}):
+            dflist.append(dict(item))
+        df = pd.DataFrame(dflist)
+        print('Query successful.')
+        return df
+
+    @staticmethod
+    def delete_data(client, database_name, container_name, query, deviceid):
+        collection_link = "dbs/%s/colls/%s" % (database_name, container_name)
+        items = list(client.QueryItems(collection_link, query, {'enableCrossPartitionQuery': True}))
+        for item in items:
+            client.DeleteItem(item['_self'])
+
+    @staticmethod
+    def update_data(client, database_name, container_name):
+        document_link = "dbs/%s/colls/%s" % (database_name, container_name)
+        for item in client.QueryItems(document_link, "SELECT * FROM %s" % container_name, {'enableCrossPartitionQuery': True}):
+            item['created'] += 1231
+            client.ReplaceItem(item['_self'], item)
+
+    @staticmethod
+    def read_csvfile():
+        df = pd.read_csv('https://npeedlkeffdev01.blob.core.windows.net/data/AMR/SSB_WSO_303010_REF_AMR_20230613_044440.csv')
+        df.reset_index(inplace=True)
+        return df
+
+def main():
+    with ReadCosmos.client_init() as client:
+        try:
+            ReadCosmos.create_cosmosdb(client, database_name)
+            ReadCosmos.create_container(client, database_name, container_name, partition_key)
+            df = ReadCosmos.read_csvfile()
+            ReadCosmos.insert_data(client, database_name, container_name, df)
+            query_data = ReadCosmos.query_data(client, database_name, container_name, '<your_query_here>')
+            # ReadCosmos.delete_data(client, database_name, container_name, '<your_query_here>', '<your_device_id_here>')
+            # ReadCosmos.update_data(client, database_name, container_name)
+        except Exception as e:
+            print("Error: {}" format(e))
+
+if __name__ == "__main__":
+    main()
