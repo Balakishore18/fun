@@ -1,8 +1,6 @@
 import pandas as pd
 import json
-import azure.cosmos.cosmos_client as cosmos_client
-import azure.cosmos.errors as errors
-import azure.cosmos.http_constants as http_constants
+from azure.cosmos import CosmosClient, PartitionKey, exceptions
 
 database_name = "SSDS"
 container_name = "EventGridContainer"
@@ -10,90 +8,85 @@ container_name = "EventGridContainer"
 class CosmosOperations:
     @staticmethod
     def client_init():
-        # Load config inside the client_init method
         with open('config.json') as config_file:
             config = json.load(config_file)
 
         endpoint = config["endpoint"]
         primary_key = config["primary_key"]
-        
-        client = cosmos_client.CosmosClient(endpoint, {'masterKey': primary_key})
+
+        client = CosmosClient(endpoint, credential=primary_key)
         return client
 
     @staticmethod
     def create_container(client, db_name, container_name):
-        database_link = 'dbs/{}'.format(db_name)
-        container_definition = {
-            'id': container_name,
-            'partitionKey': {
-                'paths': ['/partitionKey'],
-                'kind': 'Hash'
-            }
-        }
+        database = client.get_database_client(db_name)
+
         try:
-            container = client.create_container(database_link, container_definition, {'offerThroughput': 400})
+            container = database.create_container(id=container_name, 
+                                                  partition_key=PartitionKey(path="/partitionKey"), 
+                                                  offer_throughput=400)
             print('Container created')
             return container
-        except errors.HTTPFailure as e:
-            if e.status_code == http_constants.StatusCodes.CONFLICT:
-                container = client.get_container_client(database=database_name, container=container_name)
+        except exceptions.CosmosHttpResponseError as e:
+            if e.status_code == 409:  # Conflict (container already exists)
+                container = database.get_container_client(container_name)
                 return container
             else:
                 raise
 
     @staticmethod
     def insert_data(client, item):
-        container_link = 'dbs/{}/colls/{}'.format(database_name, container_name)
-        client.upsert_item(container_link, item)
+        container = client.get_database_client(database_name).get_container_client(container_name)
+        container.upsert_item(item)
         print('Data inserted')
 
     @staticmethod
     def query_data(client, query):
-        container_link = 'dbs/{}/colls/{}'.format(database_name, container_name)
-        items = list(client.query_items(container_link, query, enable_cross_partition_query=True))
+        container = client.get_database_client(database_name).get_container_client(container_name)
+        items = list(container.query_items(query=query, enable_cross_partition_query=True))
         return items
 
     @staticmethod
     def update_data(client, item):
-        container_link = 'dbs/{}/colls/{}'.format(database_name, container_name)
-        client.upsert_item(container_link, item)
+        container = client.get_database_client(database_name).get_container_client(container_name)
+        container.upsert_item(item)
         print('Data updated')
 
     @staticmethod
     def delete_data(client, item_id, partition_value):
-        container_link = 'dbs/{}/colls/{}'.format(database_name, container_name)
-        item_link = '{}/docs/{}'.format(container_link, item_id)
-        client.delete_item(item_link, partition_key=partition_value)
+        container = client.get_database_client(database_name).get_container_client(container_name)
+        container.delete_item(item_id, partition_key=partition_value)
         print('Data deleted')
 
 def main():
-    with CosmosOperations.client_init() as client:
-        # Sample Data
-        event_data = {
-            "id": "1",
-            "app_code": "sample_app",
-            "sft_batch_file_name": "batch123",
-            "data_time_stamp": "2021-09-14T12:34:56Z",
-            "complete_directory_structure": "/path/to/directory",
-            "partitionKey": "sample_app"
-        }
-        
-        # Create a container
-        CosmosOperations.create_container(client, database_name, container_name)
-        
-        # Insert data
-        CosmosOperations.insert_data(client, event_data)
-        
-        # Query data
-        queried_data = CosmosOperations.query_data(client, "SELECT * FROM c WHERE c.app_code='sample_app'")
-        print(queried_data)
+    client = CosmosOperations.client_init()
 
-        # Update data (modify the event_data dictionary and use upsert to update)
-        event_data["sft_batch_file_name"] = "batch124"
-        CosmosOperations.update_data(client, event_data)
+    # Sample Data
+    event_data = {
+        "id": "1",
+        "app_code": "sample_app",
+        "sft_batch_file_name": "batch123",
+        "data_time_stamp": "2021-09-14T12:34:56Z",
+        "complete_directory_structure": "/path/to/directory",
+        "partitionKey": "sample_app"
+    }
+    
+    # Create a container
+    CosmosOperations.create_container(client, database_name, container_name)
+    
+    # Insert data
+    CosmosOperations.insert_data(client, event_data)
+    
+    # Query data
+    queried_data = CosmosOperations.query_data(client, "SELECT * FROM c WHERE c.app_code='sample_app'")
+    print(queried_data)
 
-        # Delete data
-        CosmosOperations.delete_data(client, "1", "sample_app")
+    # Update data (modify the event_data dictionary and use upsert to update)
+    event_data["sft_batch_file_name"] = "batch124"
+    CosmosOperations.update_data(client, event_data)
+
+    # Delete data
+    CosmosOperations.delete_data(client, "1", "sample_app")
 
 if __name__ == '__main__':
     main()
