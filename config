@@ -1,0 +1,6 @@
+{
+    "endpoint": "<YOUR_COSMOSDB_ENDPOINT>",
+    "primary_key": "<YOUR_COSMOSDB_PRIMARY_KEY>",
+    "database_name": "<YOUR_DATABASE_NAME>",
+    "container_name": "<YOUR_CONTAINER_NAME>"
+}
