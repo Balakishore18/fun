@@ -4,18 +4,19 @@ import azure.cosmos.cosmos_client as cosmos_client
 import azure.cosmos.errors as errors
 import azure.cosmos.http_constants as http_constants
 
-# Load config file
-with open('config.json') as config_file:
-    config = json.load(config_file)
-
-endpoint = config["endpoint"]
-primary_key = config["primary_key"]
 database_name = "SSDS"
 container_name = "EventGridContainer"
 
 class CosmosOperations:
     @staticmethod
     def client_init():
+        # Load config inside the client_init method
+        with open('config.json') as config_file:
+            config = json.load(config_file)
+
+        endpoint = config["endpoint"]
+        primary_key = config["primary_key"]
+        
         client = cosmos_client.CosmosClient(endpoint, {'masterKey': primary_key})
         return client
 
