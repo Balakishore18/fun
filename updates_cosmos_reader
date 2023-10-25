@@ -1,43 +1,32 @@
 from main_cosmos_operations import CosmosOperations
 
-def call_operations(config_file='config.json'):
-    client, database_name, container_name = CosmosOperations.client_init(config_file)
+def main():
+    client, database_name, container_name = CosmosOperations.client_init()
+
+    # To create a new database (if not exists)
+    # CosmosOperations.create_database(client, database_name)
     
-    # Create a database
-    CosmosOperations.create_database(client, database_name)
+    # To create a new container (if not exists)
+    # CosmosOperations.create_container(client, database_name, container_name)
 
-    # Create a container
-    CosmosOperations.create_container(client, database_name, container_name)
+    # To read JSON files from a directory and insert them to Cosmos DB
+    directory_path = './path_to_your_json_files'  # Replace with the path to your directory containing JSON files
+    data = CosmosOperations.read_data(directory_path)
+    if data:
+        CosmosOperations.insert_data(client, database_name, container_name, data)
 
-    # Read event_grid data
-    try:
-        event_data = CosmosOperations.read_data("C:/Users/srika/Documents/Azure_Code/data")
-    except Exception as e:
-        print("Error reading data: {}".format(str(e)))
-        return
+    # Example of how to update data
+    # item_to_update = {
+    #    'id': 'some_id',
+    #    'partitionKey': 'some_partition_value',
+    #    ...  # other fields of the item
+    # }
+    # CosmosOperations.update_data(client, database_name, container_name, item_to_update)
 
-    # Insert data
-    CosmosOperations.insert_data(client, database_name, container_name, event_data)
-
-    # Query data
-    queried_data = CosmosOperations.query_data(client, database_name, container_name, 
-                                               "SELECT * FROM c WHERE c.app_code='sample_app'")
-    print(queried_data)
-
-    # Update data 
-    event_data["sft_batch_file_name"] = "batch124"
-    CosmosOperations.update_data(client, database_name, container_name, event_data)
-
-    # Delete data
-    CosmosOperations.delete_data(client, database_name, container_name, "1", "sample_app")
-
-def update_data(event_data, config_file='config.json'):
-    client, database_name, container_name = CosmosOperations.client_init(config_file)
-    CosmosOperations.update_data(client, database_name, container_name, event_data)
-
-def delete_data(item_id, partition_value, config_file='config.json'):
-    client, database_name, container_name = CosmosOperations.client_init(config_file)
-    CosmosOperations.delete_data(client, database_name, container_name, item_id, partition_value)
+    # Example of how to delete data
+    # item_id_to_delete = 'some_id'
+    # partition_value_of_item = 'some_partition_value'
+    # CosmosOperations.delete_data(client, database_name, container_name, item_id_to_delete, partition_value_of_item)
 
 if __name__ == '__main__':
-    call_operations()
+    main()
