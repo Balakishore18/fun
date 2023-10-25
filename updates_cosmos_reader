@@ -3,6 +3,10 @@ from main_cosmos_operations import CosmosOperations
 def main():
     client, database_name, container_name = CosmosOperations.client_init()
 
+    if not client:
+        print("Failed to initialize the client.")
+        return
+
     # To create a new database (if not exists)
     CosmosOperations.create_database(client, database_name)
     
@@ -10,13 +14,13 @@ def main():
     CosmosOperations.create_container(client, database_name, container_name)
 
     # Sample data to insert into Cosmos DB
-    sample_data = {
+    sample_data = [{
         'id': 'sample_id',
         'partitionKey': 'sample_partition',
         'name': 'John Doe',
         'age': 25,
         'address': '123 Main St'
-    }
+    }]
     CosmosOperations.insert_data(client, database_name, container_name, sample_data)
 
     # Example of how to update data
