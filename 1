@@ -4,7 +4,7 @@ import os
 import glob
 
 class CosmosOperations:
-    
+
     @staticmethod
     def client_init():
         try:
@@ -19,9 +19,12 @@ class CosmosOperations:
             client = CosmosClient(endpoint, credential=primary_key)
             return client, database_name, container_name
 
-        except (FileNotFoundError, KeyError, Exception) as e:
-            print("Error during client initialization:", str(e))
-            return None, None, None
+        except FileNotFoundError:
+            print("Error: Config file not found.")
+        except KeyError:
+            print("Error: Missing key in config file.")
+        except Exception as e:
+            print("An unexpected error occurred during client initialization: {}".format(str(e)))
 
     @staticmethod
     def create_database(client, db_name):
@@ -29,16 +32,15 @@ class CosmosOperations:
             database = client.create_database(db_name)
             print('Database created')
             return database
-
         except exceptions.CosmosHttpResponseError as e:
             if e.status_code == 409:
                 print("Database already exists.")
                 database = client.get_database_client(db_name)
                 return database
             else:
-                print("Error:", e.message)
+                print("An error occurred: {}".format(e.message))
         except Exception as e:
-            print("Unexpected error:", str(e))
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def create_container(client, db_name, container_name):
@@ -49,16 +51,15 @@ class CosmosOperations:
                                                   offer_throughput=400)
             print('Container created')
             return container
-
         except exceptions.CosmosHttpResponseError as e:
             if e.status_code == 409:
                 print("Container already exists.")
                 container = database.get_container_client(container_name)
                 return container
             else:
-                print("Error:", e.message)
+                print("An error occurred: {}".format(e.message))
         except Exception as e:
-            print("Unexpected error:", str(e))
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def read_data(filepath):
@@ -75,42 +76,58 @@ class CosmosOperations:
                             data.append(json.load(json_file))
                     return data
             else:
-                return "Directory does not exist."
+                print("Error: Directory does not exist.")
         except json.JSONDecodeError:
-            return "Malformed JSON content."
+            print("Error: Malformed JSON content.")
         except Exception as e:
-            return "Unexpected error: " + str(e)
-
-    @staticmethod
-    def data_exists(client, database_name, container_name, item):
-        container = client.get_database_client(database_name).get_container_client(container_name)
-        query = f"SELECT * FROM c WHERE c.id = '{item['id']}'"
-        items = list(container.query_items(query=query, enable_cross_partition_query=True))
-        return items[0] if items else None
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def insert_data(client, database_name, container_name, items):
-        container = client.get_database_client(database_name).get_container_client(container_name)
-        for item in items:
-            existing_data = CosmosOperations.data_exists(client, database_name, container_name, item)
-            if existing_data:
-                print(f"Item with id {item['id']} already exists. Skipping insertion.")
-                continue
-            container.upsert_item(item)
-        print('Data inserted')
+        try:
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            
+            for item in items:
+                query = "SELECT * FROM c WHERE c.id='{}'".format(item['id'])
+                existing_items = list(container.query_items(query=query, enable_cross_partition_query=True))
+
+                if not existing_items:
+                    container.upsert_item(item)
+                    print('Data inserted for ID: {}'.format(item['id']))
+                else:
+                    existing_item = existing_items[0]
+                    if existing_item != item:
+                        print('Data with ID {} already exists and differs. Consider updating instead.'.format(item['id']))
+                    else:
+                        print('Data with ID {} already exists and is identical. Skipping insertion.'.format(item['id']))
+
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def update_data(client, database_name, container_name, item):
-        container = client.get_database_client(database_name).get_container_client(container_name)
-        existing_data = CosmosOperations.data_exists(client, database_name, container_name, item)
-        if not existing_data:
-            print(f"Item with id {item['id']} doesn't exist. Cannot update non-existent data.")
-            return
-        if existing_data == item:
-            print("New data is same as existing data. No update required.")
-            return
-        container.replace_item(item=existing_data, body=item)
-        print('Data updated')
+        try:
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            
+            query = "SELECT * FROM c WHERE c.id='{}'".format(item['id'])
+            items = list(container.query_items(query=query, enable_cross_partition_query=True))
+            
+            if len(items) > 0:
+                existing_item = items[0]
+                if existing_item != item:
+                    container.replace_item(item=existing_item, body=item)
+                    print('Data updated for ID: {}'.format(item['id']))
+                else:
+                    print('Data with ID {} is already up-to-date. No updates were made.'.format(item['id']))
+            else:
+                print('Item with ID {} does not exist. Consider inserting instead.'.format(item['id']))
+                
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def delete_data(client, database_name, container_name, item_id=None, partition_value=None):
@@ -119,11 +136,49 @@ class CosmosOperations:
             
             if item_id and partition_value:
                 container.delete_item(item_id, partition_key=partition_value)
-                print('Data deleted')
+                print('Data deleted for ID: {}'.format(item_id))
             else:
                 print("Please provide both item_id and partition_value to delete.")
                 
         except exceptions.CosmosHttpResponseError as e:
-            print("Error:", e.message)
+            print("An error occurred: {}".format(e.message))
         except Exception as e:
-            print("Unexpected error:", str(e))
+            print("An unexpected error occurred: {}".format(str(e)))
+
+# For the external_call
+def main():
+    client, database_name, container_name = CosmosOperations.client_init()
+
+    # To create a new database (if not exists)
+    CosmosOperations.create_database(client, database_name)
+    
+    # To create a new container (if not exists)
+    CosmosOperations.create_container(client, database_name, container_name)
+
+    # Sample data to insert into Cosmos DB
+    sample_data = [{
+        'id': 'sample_id',
+        'partitionKey': 'sample_partition',
+        'name': 'John Doe',
+        'age': 25,
+        'address': '123 Main St'
+    }]
+    CosmosOperations.insert_data(client, database_name, container_name, sample_data)
+
+    # Example of how to update data
+    item_to_update = {
+       'id': 'sample_id',
+       'partitionKey': 'sample_partition',
+       'name': 'John D.',
+       'age': 26,
+       'address': '456 Secondary St'
+    }
+    CosmosOperations.update_data(client, database_name, container_name, item_to_update)
+
+    # To demonstrate delete (You might want to comment this out initially to check inserted & updated data)
+    # item_id_to_delete = 'sample_id'
+    # partition_value_of_item = 'sample_partition'
+    # CosmosOperations.delete_data(client, database_name, container_name, item_id_to_delete, partition_value_of_item)
+
+if __name__ == '__main__':
+    main()
