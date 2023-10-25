@@ -4,18 +4,27 @@ import os
 import glob
 
 class CosmosOperations:
+
     @staticmethod
-    def client_init(config_file='config.json'):
-        with open(config_file) as config_file:
-            config = json.load(config_file)
+    def client_init():
+        try:
+            with open('config.json') as config_file:
+                config = json.load(config_file)
+            
+            endpoint = config["endpoint"]
+            primary_key = config["primary_key"]
+            database_name = config["database_name"]
+            container_name = config["container_name"]
 
-        endpoint = config["endpoint"]
-        primary_key = config["primary_key"]
-        database_name = config["database_name"]
-        container_name = config["container_name"]
+            client = CosmosClient(endpoint, credential=primary_key)
+            return client, database_name, container_name
 
-        client = CosmosClient(endpoint, credential=primary_key)
-        return client, database_name, container_name
+        except FileNotFoundError:
+            print("Error: Config file not found.")
+        except KeyError:
+            print("Error: Missing key in config file.")
+        except Exception as e:
+            print("An unexpected error occurred during client initialization: {}".format(str(e)))
 
     @staticmethod
     def create_database(client, db_name):
@@ -25,18 +34,18 @@ class CosmosOperations:
             return database
         except exceptions.CosmosHttpResponseError as e:
             if e.status_code == 409:
-                print('Database already exists.')
+                print("Database already exists.")
                 database = client.get_database_client(db_name)
                 return database
             else:
-                print("Error creating database: {}".format(e.message))
-                raise
+                print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def create_container(client, db_name, container_name):
-        database = client.get_database_client(db_name)
-
         try:
+            database = client.get_database_client(db_name)
             container = database.create_container(id=container_name,
                                                   partition_key=PartitionKey(path="/partitionKey"),
                                                   offer_throughput=400)
@@ -44,55 +53,80 @@ class CosmosOperations:
             return container
         except exceptions.CosmosHttpResponseError as e:
             if e.status_code == 409:
-                print('Container already exists.')
+                print("Container already exists.")
                 container = database.get_container_client(container_name)
                 return container
             else:
-                print("Error creating container: {}".format(e.message))
-                raise
+                print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def read_data(filepath):
-        if os.path.exists(filepath):
-            if len(os.listdir(filepath)) == 0:
-                raise Exception("Directory is empty!")
+        try:
+            if os.path.exists(filepath):
+                if len(os.listdir(filepath)) == 0:
+                    return "No Files Found in the directory"
+                else:
+                    json_pattern = os.path.join(filepath,'*.json')
+                    file_list = glob.glob(json_pattern)
+                    data = []
+                    for file in file_list:
+                        with open(file, 'r') as json_file:
+                            data.append(json.load(json_file))
+                    return data
             else:
-                json_pattern = os.path.join(filepath, '*.json')
-                file_list = glob.glob(json_pattern)
-                for file in file_list:
-                    with open(file, 'r') as json_file:
-                        data = json.load(json_file)
-                        return data
-        else:
-            raise Exception("Directory not found!")
+                print("Error: Directory does not exist.")
+        except json.JSONDecodeError:
+            print("Error: Malformed JSON content.")
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
-    def insert_data(client, database_name, container_name, item):
-        container = client.get_database_client(database_name).get_container_client(container_name)
-        container.upsert_item(item)
-        print('Data inserted')
-
-    @staticmethod
-    def query_data(client, database_name, container_name, query):
-        container = client.get_database_client(database_name).get_container_client(container_name)
-        items = list(container.query_items(query=query, enable_cross_partition_query=True))
-        return items
+    def insert_data(client, database_name, container_name, items):
+        try:
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            for item in items:
+                container.upsert_item(item)
+            print('Data inserted')
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
     def update_data(client, database_name, container_name, item):
-        container = client.get_database_client(database_name).get_container_client(container_name)
-        container.upsert_item(item)
-        print('Data updated')
+        try:
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            
+            # Check if the item already exists
+            query = "SELECT * FROM c WHERE c.id='{}'".format(item['id'])
+            items = list(container.query_items(query=query, enable_cross_partition_query=True))
+            
+            if len(items) > 0:
+                container.replace_item(item=items[0], body=item)
+                print('Data updated')
+            else:
+                container.upsert_item(item)
+                print('Data inserted')
+                
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
     @staticmethod
-    def delete_data(client, database_name, container_name, item_id, partition_value):
-        container = client.get_database_client(database_name).get_container_client(container_name)
+    def delete_data(client, database_name, container_name, item_id=None, partition_value=None):
         try:
-            container.delete_item(item_id, partition_key=partition_value)
-            print('Data deleted')
-        except exceptions.CosmosHttpResponseError as e:
-            if e.status_code == 404:
-                print("Item not found!")
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            
+            if item_id and partition_value:
+                container.delete_item(item_id, partition_key=partition_value)
+                print('Data deleted')
             else:
-                print("Error deleting data: {}".format(e.message))
-                raise
+                print("Please provide both item_id and partition_value to delete.")
+                
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
