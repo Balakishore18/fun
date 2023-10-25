@@ -4,10 +4,9 @@ import os
 import glob
 
 class CosmosOperations:
-
     @staticmethod
-    def client_init():
-        with open('config.json') as config_file:
+    def client_init(config_file='config.json'):
+        with open(config_file) as config_file:
             config = json.load(config_file)
 
         endpoint = config["endpoint"]
@@ -19,38 +18,44 @@ class CosmosOperations:
         return client, database_name, container_name
 
     @staticmethod
-    def handle_exceptions(func):
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except exceptions.CosmosHttpResponseError as e:
-                print(f"An error occurred: {e.message}")
-                return None
-            except Exception as e:
-                print(f"Unexpected error: {e}")
-                return None
-        return wrapper
-
-    @handle_exceptions
-    @staticmethod
     def create_database(client, db_name):
-        database = client.create_database(db_name)
-        print('Database created')
-        return database
+        try:
+            database = client.create_database(db_name)
+            print('Database created')
+            return database
+        except exceptions.CosmosHttpResponseError as e:
+            if e.status_code == 409:
+                print('Database already exists.')
+                database = client.get_database_client(db_name)
+                return database
+            else:
+                print("Error creating database: {}".format(e.message))
+                raise
 
-    @handle_exceptions
     @staticmethod
     def create_container(client, db_name, container_name):
         database = client.get_database_client(db_name)
-        container = database.create_container(id=container_name, partition_key=PartitionKey(path="/partitionKey"), offer_throughput=400)
-        print('Container created')
-        return container
+
+        try:
+            container = database.create_container(id=container_name,
+                                                  partition_key=PartitionKey(path="/partitionKey"),
+                                                  offer_throughput=400)
+            print('Container created')
+            return container
+        except exceptions.CosmosHttpResponseError as e:
+            if e.status_code == 409:
+                print('Container already exists.')
+                container = database.get_container_client(container_name)
+                return container
+            else:
+                print("Error creating container: {}".format(e.message))
+                raise
 
     @staticmethod
     def read_data(filepath):
         if os.path.exists(filepath):
             if len(os.listdir(filepath)) == 0:
-                return "No Files Found in the directory"
+                raise Exception("Directory is empty!")
             else:
                 json_pattern = os.path.join(filepath, '*.json')
                 file_list = glob.glob(json_pattern)
@@ -58,46 +63,36 @@ class CosmosOperations:
                     with open(file, 'r') as json_file:
                         data = json.load(json_file)
                         return data
+        else:
+            raise Exception("Directory not found!")
 
-    @handle_exceptions
     @staticmethod
     def insert_data(client, database_name, container_name, item):
         container = client.get_database_client(database_name).get_container_client(container_name)
         container.upsert_item(item)
         print('Data inserted')
 
-    @handle_exceptions
     @staticmethod
     def query_data(client, database_name, container_name, query):
         container = client.get_database_client(database_name).get_container_client(container_name)
         items = list(container.query_items(query=query, enable_cross_partition_query=True))
         return items
 
-    @handle_exceptions
     @staticmethod
     def update_data(client, database_name, container_name, item):
         container = client.get_database_client(database_name).get_container_client(container_name)
         container.upsert_item(item)
         print('Data updated')
 
-    @handle_exceptions
     @staticmethod
     def delete_data(client, database_name, container_name, item_id, partition_value):
         container = client.get_database_client(database_name).get_container_client(container_name)
-        container.delete_item(item_id, partition_key=partition_value)
-        print('Data deleted')
-
-def main():
-    client, database_name, container_name = CosmosOperations.client_init()
-    CosmosOperations.create_database(client, database_name)
-    CosmosOperations.create_container(client, database_name, container_name)
-    event_data = CosmosOperations.read_data("C:/Users/srika/Documents/Azure_Code/data")
-    CosmosOperations.insert_data(client, database_name, container_name, event_data)
-    queried_data = CosmosOperations.query_data(client, database_name, container_name, "SELECT * FROM c WHERE c.app_code='sample_app'")
-    print(queried_data)
-    event_data["sft_batch_file_name"] = "batch124"
-    CosmosOperations.update_data(client, database_name, container_name, event_data)
-    CosmosOperations.delete_data(client, database_name, container_name, "1", "sample_app")
-
-if __name__ == '__main__':
-    main()
+        try:
+            container.delete_item(item_id, partition_key=partition_value)
+            print('Data deleted')
+        except exceptions.CosmosHttpResponseError as e:
+            if e.status_code == 404:
+                print("Item not found!")
+            else:
+                print("Error deleting data: {}".format(e.message))
+                raise
