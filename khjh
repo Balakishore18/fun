@@ -190,26 +190,32 @@ if __name__ == "__main__":
 
 
 @staticmethod
-def update_data(client, database_name, container_name, item):
-    try:
-        container = client.get_database_client(database_name).get_container_client(container_name)
-        query = "SELECT * FROM c WHERE c.id='{}'".format(item['id'])
-        params = [{'name': '@id', 'value': item['id']}]
-        items = list(container.query_items(query=query, parameters=params, enable_cross_partition_query=True))
-        
-        if len(items) > 0:
-            existing_item = items[0]
+def update_data(client, database_name, container_name, items):
+    container = client.get_database_client(database_name).get_container_client(container_name)
+
+    def update_single_item(item):
+        try:
+            query = "SELECT * FROM c WHERE c.id='{}'".format(item['id'])
+            params = [{'name': '@id', 'value': item['id']}]
+            existing_items = list(container.query_items(query=query, parameters=params, enable_cross_partition_query=True))
             
-            # Check if the items are different using their serialized form.
-            if json.dumps(existing_item, sort_keys=True) != json.dumps(item, sort_keys=True):
-                container.replace_item(item=existing_item['id'], body=item)
-                print("Data updated for ID: {}".format(item['id']))
+            if len(existing_items) > 0:
+                existing_item = existing_items[0]
+                
+                # Check if the items are different using their serialized form.
+                if json.dumps(existing_item, sort_keys=True, default=str) != json.dumps(item, sort_keys=True, default=str):
+                    container.replace_item(item=existing_item['id'], body=item)
+                    print("Data updated for ID: {}".format(item['id']))
+                else:
+                    print("Data with ID {} is already up-to-date. No updates were made.".format(item['id']))
             else:
-                print("Data with ID {} is already up-to-date. No updates were made.".format(item['id']))
-        else:
-            print("Item with ID {} does not exist. Consider inserting instead.".format(item['id']))
-            
-    except exceptions.CosmosHttpResponseError as e:
-        print("An error occurred: {}".format(e.message))
-    except Exception as e:
-        print("An unexpected error occurred: {}".format(str(e)))
+                print("Item with ID {} does not exist. Consider inserting instead.".format(item['id']))
+                
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
+
+    # Process each item in the list
+    for item in items:
+        update_single_item(item)
