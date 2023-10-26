@@ -238,3 +238,33 @@ def delete_data(client, database_name, container_name, item_id):
             print("An error occurred: {}".format(e.message))
         except Exception as e:
             print("An unexpected error occurred: {}".format(str(e))
+
+
+@staticmethod
+def delete(client, database_name, container_name, item_id):
+    try:
+        container = client.get_database_client(database_name).get_container_client(container_name)
+
+        # Query to get the partition key value
+        query = "SELECT * FROM c WHERE c.id = @id"
+        params = [{"name": "@id", "value": item_id}]
+        items = list(container.query_items(query=query, parameters=params, enable_cross_partition_query=True))
+        
+        if not items:
+            print("Data with ID {} not found.".format(item_id))
+            return
+
+        # Extracting partition key value from the item
+        partition_key_value = items[0]["partitionKey"]
+
+        # Deleting the item
+        response = container.delete_item(item_id, partition_key=partition_key_value)
+        if response.status_code == 204:
+            print("Data with ID {} has been deleted.".format(item_id))
+        else:
+            print("Error during deletion. Status code: {}".format(response.status_code))
+            
+    except exceptions.CosmosHttpResponseError as e:
+        print("An error occurred: {}".format(e.message))
+    except Exception as e:
+        print("An unexpected error occurred: {}".format(str(e)))
