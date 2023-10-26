@@ -270,31 +270,35 @@ def delete(client, database_name, container_name, item_id):
         print("An unexpected error occurred: {}".format(str(e)))
 
 @staticmethod
-def delete_data(client, database_name, container_name, item):
+def delete_single_item(client, database_name, container_name, item):
     try:
         container = client.get_database_client(database_name).get_container_client(container_name)
         
         query = "SELECT * FROM c WHERE c.id = @itemId"
         params = [{"name": "@itemId", "value": item['id']}]
+        
         existing_items = list(container.query_items(query, parameters=params, enable_cross_partition_query=True))
-        
-        if not existing_items:
-            print("Item with ID {} not found.".format(item['id']))
-            return
 
-        partition_key = item['partitionKey']
-        print(item['id'])
-        print(partition_key)
-        
-        response = container.delete_item(item, partition_key=partition_key)
-        
-        if response['statusCode'] == 204:
-            print("Data with ID {item_id} has been deleted.".format(item_id=item['id']))
+        if len(existing_items) > 0:
+            partition_key = item['partitionKey']
+            response = container.delete_item(item_id=item['id'], partition_key=partition_key)
+            
+            if response['statusCode'] == 204:
+                print("Data with ID {} has been deleted.".format(item['id']))
+            else:
+                print("Data with ID {} was not found, so no deletion occurred.".format(item['id']))
         else:
-            print("Data with ID {item_id} was not found, so no deletion occurred.".format(item_id=item['id']))
+            print("Item with ID {} does not exist. No deletion occurred.".format(item['id']))
+
     except exceptions.CosmosHttpResponseError as e:
-        print("An error occurred: {message}".format(message=e.message))
+        print("An error occurred: {}".format(e.message))
     except Exception as e:
-        print("An unexpected error occurred: {error}".format(error=str(e)))
+        print("An unexpected error occurred: {}".format(str(e)))
+
+@staticmethod
+def delete_data(client, database_name, container_name, items):
+    for item in items:
+        delete_single_item(client, database_name, container_name, item)
+
 
 
