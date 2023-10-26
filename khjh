@@ -154,16 +154,21 @@ def process_config_operations(client, database_name, container_name):
     import json
     with open('config.json') as config_file:
         config = json.load(config_file)
-        if "update" in config and config["update"]:
-            item_to_update = config["item_to_update"]
-            CosmosOperations.update_data(client, database_name, container_name, item_to_update)
-        if "delete" in config and config["delete"]:
-            item_id_to_delete = config["item_id_to_delete"]
-            partition_value_of_item = config["partition_value_of_item"]
+        if "update" in config and config["update"]["enabled"]:
+            item_to_update = config["update"]["item_to_update"]
+            if isinstance(item_to_update, list):  # Check if it's a list
+                for item in item_to_update:
+                    CosmosOperations.update_data(client, database_name, container_name, item)
+            else:
+                CosmosOperations.update_data(client, database_name, container_name, item_to_update)
+        if "delete" in config and config["delete"]["enabled"]:
+            item_id_to_delete = config["delete"]["item_id"]
+            partition_value_of_item = config["delete"].get("partition_value_of_item", None)
             CosmosOperations.delete_data(client, database_name, container_name, item_id_to_delete, partition_value_of_item)
 
 if __name__ == "__main__":
     main()
+
 
 
 {
