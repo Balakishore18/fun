@@ -219,3 +219,22 @@ def update_data(client, database_name, container_name, items):
     # Process each item in the list
     for item in items:
         update_single_item(item)
+
+
+def delete_data(client, database_name, container_name, item_id):
+        try:
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            query = "SELECT * FROM c WHERE c.id = @id"
+            params = [{'name': '@id', 'value': item_id}]
+            existing_items = list(container.query_items(query, parameters=params, enable_cross_partition_query=True))
+
+            if existing_items:
+                existing_item = existing_items[0]
+                container.delete_item(item=existing_item)
+                print(f"Data with ID {item_id} has been deleted.")
+            else:
+                print(f"Data with ID {item_id} was not found, so no deletion occurred.")
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e))
