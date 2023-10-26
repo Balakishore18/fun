@@ -269,17 +269,18 @@ def delete(client, database_name, container_name, item_id):
     except Exception as e:
         print("An unexpected error occurred: {}".format(str(e)))
 
-class CosmosOperations:
-
-    @staticmethod
-    def delete_data(client, database_name, container_name, delete_info):
-        container = client.get_database_client(database_name).get_container_client(container_name)
+@staticmethod
+    def delete_data(client, database_name, container_name, delete_data):
+        database_client = CosmosOperations.get_database_client(client, database_name)
+        container_client = CosmosOperations.get_container_client(database_client, container_name)
 
         try:
-            container.delete_item(item=delete_info['id'], partition_key=delete_info['partitionKey'])
-            print(f"Item with ID: {delete_info['id']} and partitionKey: {delete_info['partitionKey']} deleted successfully.")
+            container_client.delete_item(item=delete_data['id'], partition_key=delete_data['partitionKey'])
+            print("Item with ID {} and Partition Key {} deleted successfully.".format(delete_data['id'], delete_data['partitionKey']))
         except exceptions.CosmosHttpResponseError as e:
-            print(f"An error occurred: {e.message}")
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
 
 
 
