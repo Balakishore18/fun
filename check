@@ -7,22 +7,25 @@ from concurrent.futures import ThreadPoolExecutor
 class CosmosOperations:
 
     @staticmethod
-    def client_init():
-        try:
-            with open('/home/azureuser/config.json') as config_file:
-                config = json.load(config_file)
-                endpoint = config["endpoint"]
-                primary_key = config["primary_key"]
-                database_name = config["database_name"]
-                container_name = config["container_name"]
-                client = CosmosClient(endpoint, credential=primary_key)
-                return client, database_name, container_name
-        except FileNotFoundError:
-            print("Error: Config file not found.")
-        except KeyError:
-            print("Error: Missing key in config file.")
-        except Exception as e:
-            print("An unexpected error occurred during client initialization: {}".format(e))
+    @staticmethod
+def client_init():
+    try:
+        with open('/home/azureuser/config.json') as config_file:
+            config = json.load(config_file)
+            endpoint = config["endpoint"]
+            primary_key = config["primary_key"]
+            database_name = config["database_name"]
+            container_name = config["container_name"]
+            client = CosmosClient(endpoint, credential=primary_key)
+            return client, database_name, container_name
+    except FileNotFoundError:
+        print("Error: Config file not found.")
+    except KeyError:
+        print("Error: Missing key in config file.")
+    except Exception as e:
+        print("An unexpected error occurred during client initialization: {}".format(str(e)))
+    return None, None, None  # Explicitly return None for all values
+
 
     @staticmethod
     def create_database(client, db_name):
