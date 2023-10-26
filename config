@@ -1,6 +1,15 @@
 {
-    "endpoint": "<YOUR_COSMOSDB_ENDPOINT>",
-    "primary_key": "<YOUR_COSMOSDB_PRIMARY_KEY>",
-    "database_name": "<YOUR_DATABASE_NAME>",
-    "container_name": "<YOUR_CONTAINER_NAME>"
+  "endpoint": "YOUR_COSMOS_DB_ENDPOINT",
+  "primary_key": "YOUR_PRIMARY_KEY",
+  "database_name": "YOUR_DATABASE_NAME",
+  "container_name": "YOUR_CONTAINER_NAME",
+  "update": true or false,
+  "delete": true or false,
+  "item_to_update": {
+    "id": "ITEM_ID_TO_UPDATE",
+    "partitionkey": "PARTITION_KEY_VALUE",
+    "...": "other item properties"
+  },
+  "item_id_to_delete": "ITEM_ID_TO_DELETE",
+  "partition_value_of_item": "PARTITION_VALUE_OF_ITEM"
 }
