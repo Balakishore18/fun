@@ -268,3 +268,23 @@ def delete(client, database_name, container_name, item_id):
         print("An error occurred: {}".format(e.message))
     except Exception as e:
         print("An unexpected error occurred: {}".format(str(e)))
+
+
+@staticmethod
+def delete(client, database_name, container_name, item_id, partition_key_value):
+    try:
+        # Get the container client
+        container = client.get_database_client(database_name).get_container_client(container_name)
+
+        # Deleting the item
+        response = container.delete_item(item_id, partition_key=partition_key_value)
+        
+        # Printing a simple confirmation
+        if response.status_code == 204:
+            print("Data with ID {} has been deleted.".format(item_id))
+        else:
+            print("Error during deletion. Status code: {}".format(response.status_code))
+            
+    except Exception as e:
+        print("An error occurred: {}".format(str(e)))
+
