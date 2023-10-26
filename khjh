@@ -1,0 +1,56 @@
+import json
+from azure.cosmos import CosmosClient, PartitionKey, exceptions
+import os
+import glob
+from concurrent.futures import ThreadPoolExecutor
+
+class CosmosOperations:
+
+    @staticmethod
+    def client_init():
+        try:
+            with open('/home/azureuser/config.json') as config_file:
+                config = json.load(config_file)
+                endpoint = config["endpoint"]
+                primary_key = config["primary_key"]
+                database_name = config["database_name"]
+                container_name = config["container_name"]
+                client = CosmosClient(endpoint, credential=primary_key)
+                return client, database_name, container_name
+        except FileNotFoundError:
+            print("Error: Config file not found.")
+        except KeyError:
+            print("Error: Missing key in config file.")
+        except Exception as e:
+            print("An unexpected error occurred during client initialization: {}".format(str(e)))
+        return None, None, None  # Explicitly return None for all values
+
+    @staticmethod
+    def create_database(client, db_name):
+        # ... [Rest of the methods are similar]
+
+
+
+from cosmos_operations import CosmosOperations
+
+cosmos_ops = CosmosOperations()
+
+client, database_name, container_name = CosmosOperations.client_init()
+
+CosmosOperations.create_database(client, database_name)
+
+event_data = CosmosOperations.read_data("/home/azureuser/data")
+print(event_data)
+
+CosmosOperations.insert_data(client, database_name, container_name, event_data)
+
+with open('/home/azureuser/config.json') as config_file:
+    config = json.load(config_file)
+    if "update" in config and config["update"]:
+        item_to_update = config["item_to_update"]
+        CosmosOperations.update_data(client, database_name, container_name, item_to_update)
+    if "delete" in config and config["delete"]:
+        item_id_to_delete = config["item_id_to_delete"]
+        partition_value_of_item = config["partition_value_of_item"]
+        CosmosOperations.delete_data(client, database_name, container_name, item_id_to_delete, partition_value_of_item)
+
