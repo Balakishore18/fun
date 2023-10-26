@@ -19,49 +19,51 @@ class CosmosOperations:
                 return client, database_name, container_name
         except FileNotFoundError:
             print("Error: Config file not found.")
+            return None, None, None
         except KeyError:
             print("Error: Missing key in config file.")
+            return None, None, None
         except Exception as e:
             print("An unexpected error occurred during client initialization: {}".format(str(e)))
-        return None, None, None
+            return None, None, None
 
     @staticmethod
     def create_database(client, db_name):
         try:
             database = client.create_database(db_name)
-            print('Database created')
             return database
         except exceptions.CosmosHttpResponseError as e:
             if e.status_code == 409:
-                print('Database already exists.')
                 return client.get_database_client(db_name)
             else:
                 print("An error occurred: {}".format(e.message))
+                return None
         except Exception as e:
             print("An unexpected error occurred: {}".format(str(e)))
+            return None
 
     @staticmethod
     def create_container(client, db_name, container_name):
         try:
             database = client.get_database_client(db_name)
             container = database.create_container(id=container_name, partition_key=PartitionKey(path="/partitionkey"), throughput=400)
-            print('Container created')
             return container
         except exceptions.CosmosHttpResponseError as e:
             if e.status_code == 409:
-                print('Container already exists.')
                 return database.get_container_client(container_name)
             else:
                 print("An error occurred: {}".format(e.message))
+                return None
         except Exception as e:
             print("An unexpected error occurred: {}".format(str(e)))
+            return None
 
     @staticmethod
     def read_data(filepath):
         try:
             if os.path.exists(filepath):
                 if len(os.listdir(filepath)) == 0:
-                    return "No Files Found in the directory"
+                    return []
                 else:
                     file_pattern = os.path.join(filepath, '*.json')
                     file_list = glob.glob(file_pattern)
@@ -71,11 +73,13 @@ class CosmosOperations:
                             data.append(json.load(json_file))
                     return data
             else:
-                print("Error: Directory does not exist.")
+                return []
         except json.decoder.JSONDecodeError:
             print("Error: Malformed JSON content.")
+            return []
         except Exception as e:
             print("An unexpected error occurred: {}".format(str(e)))
+            return []
 
     @staticmethod
     def insert_data(client, database_name, container_name, items):
@@ -95,13 +99,7 @@ class CosmosOperations:
             query = "SELECT * FROM c WHERE c.id='{}'".format(item['id'])
             existing_items = list(container.query_items(query=query, enable_cross_partition_query=True))
             if len(existing_items) == 1:
-                if existing_items[0] != item:
-                    container.replace_item(item=item['id'], body=item)
-                    print("Data updated for ID: {}".format(item['id']))
-                else:
-                    print("Data with ID {} is identical. No updates were made.".format(item['id']))
-            else:
-                print("Item with ID {} does not exist. Consider inserting instead.".format(item['id']))
+                container.replace_item(item=existing_items[0], body=item)
         except exceptions.CosmosHttpResponseError as e:
             print("An error occurred: {}".format(e.message))
         except Exception as e:
@@ -110,16 +108,17 @@ class CosmosOperations:
     @staticmethod
     def delete_data(client, database_name, container_name, item_id=None, partition_value=None):
         try:
-            if item_id and partition_value:
-                container = client.get_database_client(database_name).get_container_client(container_name)
-                container.delete_item(item_id, partition_key=partition_value)
-                print("Data deleted for ID: {}".format(item_id))
-            else:
-                print("Please provide both item_id and partition value to delete.")
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            container.delete_item(item_id, partition_key=partition_value)
         except exceptions.CosmosHttpResponseError as e:
             print("An error occurred: {}".format(e.message))
         except Exception as e:
             print("An unexpected error occurred: {}".format(str(e)))
+
+
+
+
+from cosmos_operations import CosmosOperations
 
 client, database_name, container_name = CosmosOperations.client_init()
 
@@ -128,10 +127,10 @@ if client and database_name and container_name:
     CosmosOperations.create_container(client, database_name, container_name)
     event_data = CosmosOperations.read_data("/home/azureuser/data")
     
-    if isinstance(event_data, list):
+    if event_data:
         CosmosOperations.insert_data(client, database_name, container_name, event_data)
     else:
-        print(event_data)
+        print("No data found or error reading data.")
 
     with open('/home/azureuser/config.json') as config_file:
         config = json.load(config_file)
