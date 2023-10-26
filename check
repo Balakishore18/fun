@@ -1,110 +1,142 @@
-import pandas as pd
 import json
-import azure.cosmos.cosmos_client as cosmos_client
-import azure.cosmos.errors as errors
-import azure.cosmos.documents as documents
-import azure.cosmos.http_constants as http_constants
+from azure.cosmos import CosmosClient, PartitionKey, exceptions
+import os
+import glob
+from concurrent.futures import ThreadPoolExecutor
 
-# Configuration
-database_name = "SSDS"
-container_name = "SSDS COSMOS"
-endpoint = "https://npee-usc-eff-dev-cosmosdb-sql-01.documents.azure.com:443/"
-partition_key = "tzTEKgbW×wODJVnSut9iMgep5Kds7cq9HbvG7WKr7KSPyJ5PAYQk4wbK2bXsM1Ry3]ZbFT6JL6YLACDbQwK0pg=="
-
-# Load config file
-with open("/home/azureuser/config.json") as config_file:
-    config = json.load(config_file)
-
-class ReadCosmos:
+class CosmosOperations:
 
     @staticmethod
     def client_init():
-        client = cosmos_client.CosmosClient(
-            url_connection=config["endpoint"],
-            auth={"masterKey": config["partition_key"]}
-        )
-        return client
-
-    @staticmethod
-    def create_cosmosdb(client, database_name):
         try:
-            client.CreateDatabase({'id': database_name})
-            print("Database %s created" % database_name)
-        except errors.HTTPFailure as e:
-            if e.status_code == http_constants.StatusCodes.CONFLICT:
-                print("Database %s already exists" % database_name)
-            else:
-                raise e
-
-    @staticmethod
-    def create_container(client, database_name, container_name, partition_key):
-        database_link = "dbs/%s" % database_name
-        container_definition = {
-            'id': container_name,
-            'partitionKey': {
-                'paths': ['/partkey'],
-                'kind': documents.PartitionKind.Hash
-            }
-        }
-        try:
-            container = client.CreateContainer(database_link, container_definition)
-            print("Container %s created" % container_name)
-        except errors.HTTPFailure as e:
-            if e.status_code == http_constants.StatusCodes.CONFLICT:
-                print("Container %s already exists" % container_name)
-            else:
-                raise e
-
-    @staticmethod
-    def insert_data(client, database_name, container_name, df):
-        collection_link = "dbs/%s/colls/%s" % (database_name, container_name)
-        for i in range(0, df.shape[0]):
-            data_dict = df.iloc[i].to_dict()
-            client.UpsertItem(collection_link, data_dict)
-        print("Records inserted successfully.")
-
-    @staticmethod
-    def query_data(client, database_name, container_name, query):
-        dflist = []
-        collection_link = "dbs/%s/colls/%s" % (database_name, container_name)
-        for item in client.QueryItems(collection_link, query, {'enableCrossPartitionQuery': True}):
-            dflist.append(dict(item))
-        df = pd.DataFrame(dflist)
-        print('Query successful.')
-        return df
-
-    @staticmethod
-    def delete_data(client, database_name, container_name, query, deviceid):
-        collection_link = "dbs/%s/colls/%s" % (database_name, container_name)
-        items = list(client.QueryItems(collection_link, query, {'enableCrossPartitionQuery': True}))
-        for item in items:
-            client.DeleteItem(item['_self'])
-
-    @staticmethod
-    def update_data(client, database_name, container_name):
-        document_link = "dbs/%s/colls/%s" % (database_name, container_name)
-        for item in client.QueryItems(document_link, "SELECT * FROM %s" % container_name, {'enableCrossPartitionQuery': True}):
-            item['created'] += 1231
-            client.ReplaceItem(item['_self'], item)
-
-    @staticmethod
-    def read_csvfile():
-        df = pd.read_csv('https://npeedlkeffdev01.blob.core.windows.net/data/AMR/SSB_WSO_303010_REF_AMR_20230613_044440.csv')
-        df.reset_index(inplace=True)
-        return df
-
-def main():
-    with ReadCosmos.client_init() as client:
-        try:
-            ReadCosmos.create_cosmosdb(client, database_name)
-            ReadCosmos.create_container(client, database_name, container_name, partition_key)
-            df = ReadCosmos.read_csvfile()
-            ReadCosmos.insert_data(client, database_name, container_name, df)
-            query_data = ReadCosmos.query_data(client, database_name, container_name, '<your_query_here>')
-            # ReadCosmos.delete_data(client, database_name, container_name, '<your_query_here>', '<your_device_id_here>')
-            # ReadCosmos.update_data(client, database_name, container_name)
+            with open('/home/azureuser/config.json') as config_file:
+                config = json.load(config_file)
+                endpoint = config["endpoint"]
+                primary_key = config["primary_key"]
+                database_name = config["database_name"]
+                container_name = config["container_name"]
+                client = CosmosClient(endpoint, credential=primary_key)
+                return client, database_name, container_name
+        except FileNotFoundError:
+            print("Error: Config file not found.")
+        except KeyError:
+            print("Error: Missing key in config file.")
         except Exception as e:
-            print("Error: {}" format(e))
+            print("An unexpected error occurred during client initialization: {}".format(e))
 
-if __name__ == "__main__":
-    main()
+    @staticmethod
+    def create_database(client, db_name):
+        try:
+            database = client.create_database(db_name)
+            print('Database created')
+            return database
+        except exceptions.CosmosHttpResponseError as e:
+            if e.status_code == 409:
+                print('Database already exists.')
+                return client.get_database_client(db_name)
+            else:
+                print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
+
+    @staticmethod
+    def create_container(client, db_name, container_name):
+        try:
+            database = client.get_database_client(db_name)
+            container = database.create_container(id=container_name, partition_key=PartitionKey(path="/partitionkey"), throughput=400)
+            print('Container created')
+            return container
+        except exceptions.CosmosHttpResponseError as e:
+            if e.status_code == 409:
+                print('Container already exists.')
+                return database.get_container_client(container_name)
+            else:
+                print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
+
+    @staticmethod
+    def read_data(filepath):
+        try:
+            if os.path.exists(filepath):
+                if len(os.listdir(filepath)) == 0:
+                    return "No Files Found in the directory"
+                else:
+                    file_pattern = os.path.join(filepath, '*.json')
+                    file_list = glob.glob(file_pattern)
+                    data = []
+                    for file in file_list:
+                        with open(file, 'r') as json_file:
+                            data.append(json.load(json_file))
+                    return data
+            else:
+                print("Error: Directory does not exist.")
+        except json.decoder.JSONDecodeError:
+            print("Error: Malformed JSON content.")
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
+
+    @staticmethod
+    def insert_data(client, database_name, container_name, items):
+        try:
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            with ThreadPoolExecutor() as executor:
+                list(executor.map(container.upsert_item, items))
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(e))
+
+    @staticmethod
+    def update_data(client, database_name, container_name, item):
+        try:
+            container = client.get_database_client(database_name).get_container_client(container_name)
+            query = "SELECT * FROM c WHERE c.id='{}'".format(item['id'])
+            existing_items = list(container.query_items(query=query, enable_cross_partition_query=True))
+            if len(existing_items) == 1:
+                if existing_items[0] != item:
+                    container.replace_item(item=item['id'], body=item)
+                    print("Data updated for ID: {}".format(item['id']))
+                else:
+                    print("Data with ID {} is identical. No updates were made.".format(item['id']))
+            else:
+                print("Item with ID {} does not exist. Consider inserting instead.".format(item['id']))
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
+
+    @staticmethod
+    def delete_data(client, database_name, container_name, item_id=None, partition_value=None):
+        try:
+            if item_id and partition_value:
+                container = client.get_database_client(database_name).get_container_client(container_name)
+                container.delete_item(item_id, partition_key=partition_value)
+                print("Data deleted for ID: {}".format(item_id))
+            else:
+                print("Please provide both item_id and partition value to delete.")
+        except exceptions.CosmosHttpResponseError as e:
+            print("An error occurred: {}".format(e.message))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(str(e)))
+
+cosmos_operations = CosmosOperations()
+
+client, database_name, container_name = CosmosOperations.client_init()
+
+CosmosOperations.create_database(client, database_name)
+
+event_data = CosmosOperations.read_data("/home/azureuser/data")
+print(event_data)
+
+CosmosOperations.insert_data(client, database_name, container_name, event_data)
+
+with open('/home/azureuser/config.json') as config_file:
+    config = json.load(config_file)
+    if "update" in config and config["update"]:
+        item_to_update = config["item_to_update"]
+        CosmosOperations.update_data(client, database_name, container_name, item_to_update)
+    if "delete" in config and config["delete"]:
+        item_id_to_delete = config["item_id_to_delete"]
+        partition_value_of_item = config["partition_value_of_item"]
+        CosmosOperations.delete_data(client, database_name, container_name, item_id_to_delete, partition_value_of_item)
