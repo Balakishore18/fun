@@ -272,27 +272,23 @@ def delete(client, database_name, container_name, item_id):
 @staticmethod
 def delete_data(client, database_name, container_name, item):
     try:
-        # Get the container client
         container = client.get_database_client(database_name).get_container_client(container_name)
+        query = "SELECT * FROM c WHERE c.id = '{id}'".format(id=item['id'])
+        params = {'name': 'value', 'value': item['id']}
+        existing_items = list(container.query_items(query, parameters=params, enable_cross_partition_query=True))
         
-        # Print item details to be deleted
-        print("Deleting item with ID: {} and PartitionKey: {}".format(item['id'], item['partitionKey']))
+        partition_key = item['partitionKey']
+        print(item['id'])
+        print(partition_key)
         
-        # Delete the item
-        response = container.delete_item(item_id=item['id'], partition_key=item['partitionKey'])
+        response = container.delete_item(item_id=item['id'], partition_key=partition_key)
         
-        # Print the response
-        print("Delete Response: {}".format(response))
-
-        # Check if the deletion was successful
         if response['statusCode'] == 204:
-            print("Data with ID {} has been deleted.".format(item['id']))
+            print("Data with ID {item_id} has been deleted.".format(item_id=item['id']))
         else:
-            print("Data with ID {} was not found, so no deletion occurred.".format(item['id']))
-
+            print("Data with ID {item_id} was not found, so no deletion occurred.".format(item_id=item['id']))
     except exceptions.CosmosHttpResponseError as e:
-        print("Error during deletion: {}".format(e.message))
-        print("Exception: {}".format(e))  # Print the full exception details
+        print("An error occurred: {message}".format(message=e.message))
     except Exception as e:
-        print("An unexpected error occurred: {}".format(e))  # Print the full exception details
+        print("An unexpected error occurred: {error}".format(error=str(e)))
 
