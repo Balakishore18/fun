@@ -306,19 +306,20 @@ def delete_data(client, database_name, container_name, delete_data_info):
 def update_data(client, database_name, container_name, item):
     container = client.get_database_client(database_name).get_container_client(container_name)
     try:
-        query = 'SELECT * FROM c WHERE c.id = "{}"'.format(item['id'])
-        params = [{"name": "@id", "value": item["id"]}]
+        item_id_str = str(item['id'])  # Convert to string
+        query = 'SELECT * FROM c WHERE c.id = "{}"'.format(item_id_str)
+        params = [{"name": "@id", "value": item_id_str}]
         existing_items = list(container.query_items(query=query, parameters=params, enable_cross_partition_query=True))
         
         if existing_items:
             existing_item = existing_items[0]
             if json.dumps(existing_item, sort_keys=True, default=str) == json.dumps(item, sort_keys=True, default=str):
-                print("Data with ID {} is already up-to-date. No updates were made.".format(item['id']))
+                print("Data with ID {} is already up-to-date. No updates were made.".format(item_id_str))
             else:
                 container.replace_item(existing_item, item)
-                print("Data updated for item with ID {}.".format(item['id']))
+                print("Data updated for item with ID {}.".format(item_id_str))
         else:
-            print("Item with ID {} does not exist. Inserting instead.".format(item['id']))
+            print("Item with ID {} does not exist. Inserting instead.".format(item_id_str))
             container.create_item(body=item)
             
     except exceptions.CosmosHttpResponseError as e:
@@ -331,11 +332,13 @@ def delete_data(client, database_name, container_name, delete_data):
     container = client.get_database_client(database_name).get_container_client(container_name)
     for data in delete_data:
         try:
-            container.delete_item(item=data, partition_key=data['partitionKey'])
-            print("Item with ID {} and Partition Key {} deleted successfully.".format(data['id'], data['partitionKey']))
+            data_id_str = str(data['id'])  # Convert to string
+            partition_key_str = str(data['partitionKey'])  # Convert to string
+            container.delete_item(item=data, partition_key=partition_key_str)
+            print("Item with ID {} and Partition Key {} deleted successfully.".format(data_id_str, partition_key_str))
         except exceptions.CosmosHttpResponseError as e:
             if e.status_code == 404:
-                print("Item with ID {} does not exist to delete.".format(data['id']))
+                print("Item with ID {} does not exist to delete.".format(data_id_str))
             else:
                 print("An error occurred: {}".format(e.message))
         except Exception as e:
