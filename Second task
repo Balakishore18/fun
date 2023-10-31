@@ -41,3 +41,26 @@ create_and_run_databricks_job(notebook_path, job_name)
     "notebook_path": "/Workspace/path/to/your/notebook"
   }
 }
+
+
+
+# Databricks notebook source
+
+# MAGIC %md
+# MAGIC # Simple Notebook to Generate and Display Random Data
+
+# MAGIC %md
+# MAGIC ## Generate Random Data
+
+# MAGIC %python
+from pyspark.sql.functions import rand
+
+# Create a DataFrame with 5 rows and 2 columns of random numbers
+df = spark.range(5).select(rand().alias("Random1"), rand().alias("Random2"))
+
+# MAGIC %md
+# MAGIC ## Display the Data
+
+# MAGIC %python
+# Display the generated DataFrame
+display(df)
