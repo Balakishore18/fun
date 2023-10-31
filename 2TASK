@@ -87,5 +87,16 @@ def create_databricks_job():
         }
     }
 
-    response = requests.post(job_endpoint, headers=HEADERS, data=json.dumps({"job_settings":
+    response = requests.post(job_endpoint, headers=HEADERS, data=json.dumps({"job_settings": job_settings}))
+    
+    if response.status_code == 200:
+        print("Job created successfully!")
+        job_data = response.json()
+        return job_data["job_id"]
+    else:
+        print("Error creating job:", response.text)
+
+job_id = create_databricks_job()
+print(f"Created Job ID: {job_id}")
+
 
