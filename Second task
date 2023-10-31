@@ -1,0 +1,43 @@
+import subprocess
+import json
+
+def create_and_run_databricks_job(notebook_path, job_name):
+    # Create a job
+    create_job_command = [
+        "databricks", "jobs", "create",
+        "--json", 
+        '{ "name": "' + job_name + '", "new_cluster": { "spark_version": "7.3.x-scala2.12", "node_type_id": "Standard_DS3_v2", "num_workers": 2 }, "notebook_task": { "notebook_path": "' + notebook_path + '" } }'
+    ]
+    
+    response = subprocess.run(create_job_command, capture_output=True, text=True)
+    
+    # Parse job id from the response (assuming the job creation was successful)
+    response_json = json.loads(response.stdout)
+    job_id = response_json["job_id"]
+    
+    # Run the job
+    run_job_command = [
+        "databricks", "jobs", "run-now",
+        "--job-id", str(job_id)
+    ]
+    
+    response = subprocess.run(run_job_command, capture_output=True, text=True)
+    print(response.stdout)
+
+# Example usage
+notebook_path = "/Workspace/path/to/your/notebook"
+job_name = "MyJobName"
+create_and_run_databricks_job(notebook_path, job_name)
+
+
+{
+  "name": "MyCSVLoaderJob",
+  "new_cluster": {
+    "spark_version": "7.3.x-scala2.12",
+    "node_type_id": "Standard_DS3_v2",
+    "num_workers": 2
+  },
+  "notebook_task": {
+    "notebook_path": "/Workspace/path/to/your/notebook"
+  }
+}
