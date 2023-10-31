@@ -56,29 +56,27 @@ if __name__ == "__main__":
     main()
 
 
-
-import json
 import requests
+import json
 
-DATABRICKS_URL = "https://adb-214161031131261.4.azuredatabricks.net/"
-DATABRICKS_TOKEN = "dap1572f9313450e017816253420d195125"
+DATABRICKS_URL = "https://<your-databricks-workspace-url>"
+DATABRICKS_TOKEN = "Bearer <your-access-token>"
 
 HEADERS = {
-    "Authorization": "Bearer {}".format(DATABRICKS_TOKEN),
+    "Authorization": DATABRICKS_TOKEN,
     "Content-Type": "application/json"
 }
 
 def create_databricks_job():
     job_endpoint = "{}/api/2.0/jobs/create".format(DATABRICKS_URL)
-    
+
     job_settings = {
         "name": "Sample Job",
         "new_cluster": {
             "spark_version": "11.3.x-scala2.12",
-            "node_type_id": "Standard_DS4_v5",
+            "node_type_id": "Standard_DS4_v2",
             "num_workers": 1
         },
-        "libraries": [],
         "email_notifications": {},
         "timeout_seconds": 0,
         "max_retries": 1
@@ -88,15 +86,21 @@ def create_databricks_job():
 
     if response.status_code == 200:
         print("Job created successfully!")
-        job_data = response.json()
-        return job_data['job_id']
+        try:
+            job_data = response.json()
+            return job_data['job_id']
+        except Exception as e:
+            print("Error parsing response:", e)
+            return None
     else:
         print("Error creating job:", response.text)
         return None
 
 job_id = create_databricks_job()
 if job_id:
-    print("Created Job ID: {}".format(job_id))
+    print("Created Job ID:", job_id)
 
+
+      
 
 
