@@ -86,3 +86,23 @@ container_name = "your_container_name"
 
 write_data_to_cosmos(cosmos_url, cosmos_key, database_name, container_name, data)
 
+
+from azure.storage.blob import BlobServiceClient
+from azure.identity import DefaultAzureCredential
+
+def fetch_blob_data_with_managed_identity(account_url, container_name, blob_name):
+    credential = DefaultAzureCredential()
+    blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+    blob_data = blob_client.download_blob().readall()
+    return json.loads(blob_data)
+
+# Example usage:
+account_url = 'https://your_account_name.blob.core.windows.net'
+container_name = 'your_container_name'
+blob_name = 'your_blob_name.json'
+data = fetch_blob_data_with_managed_identity(account_url, container_name, blob_name)
+
+pip install azure-storage-blob azure-identity
+
+
