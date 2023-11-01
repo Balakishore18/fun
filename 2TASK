@@ -1,106 +1,47 @@
-import os
-import json
-import subprocess
-from azure.cosmos import CosmosClient
-
-def get_cosmosdb_config():
-    cosmosdb_endpoint = os.environ.get('COSMOSDB_ENDPOINT')
-    cosmosdb_key = os.environ.get('COSMOSDB_KEY')
-    database_id = os.environ.get('DATABASE_ID')
-    collection_id = os.environ.get('COLLECTION_ID')
-
-    if not all([cosmosdb_endpoint, cosmosdb_key, database_id, collection_id]):
-        raise Exception("Environment variables not properly set for CosmosDB configuration.")
-
-    client = CosmosClient(cosmosdb_endpoint, cosmosdb_key)
-    db = client.get_database_client(database_id)
-    container = db.get_container_client(collection_id)
-
-    query = "SELECT * FROM c WHERE c.type = 'databricks_config'"
-    items = list(container.query_items(query, enable_cross_partition_query=True))
-    
-    if not items:
-        raise Exception("No Databricks configuration found in CosmosDB")
-
-    return items[0]
-
-def create_databricks_job_via_cli(config):
-    job_settings = {
-        "name": config.get('job_name', "DefaultDatabricksJobName"),
-        "new_cluster": {
-            "cluster_id": config['cluster_id'],
-            # Additional cluster configurations can be added here
-        },
-        # More job settings can be added or modified here as per requirements
-    }
-
-    # Convert job_settings to JSON and then to a string for CLI input
-    job_settings_str = json.dumps(job_settings)
-
-    # Using subprocess to execute the Databricks CLI command
-    command = ['databricks', 'jobs', 'create', '--json', job_settings_str]
-    try:
-        output = subprocess.check_output(command, stderr=subprocess.STDOUT).decode('utf-8')
-        print(f"Command Output: {output}")
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to create Databricks job via CLI. Error: {e.output.decode('utf-8')}")
-
-def main():
-    try:
-        cosmosdb_config = get_cosmosdb_config()
-        create_databricks_job_via_cli(cosmosdb_config)
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-
-if __name__ == "__main__":
-    main()
-
-
-import requests
-import json
-
-DATABRICKS_URL = "https://<your-databricks-workspace-url>"
-DATABRICKS_TOKEN = "Bearer <your-access-token>"
-
-HEADERS = {
-    "Authorization": DATABRICKS_TOKEN,
-    "Content-Type": "application/json"
+{
+  "name": "MyJobName",
+  "new_cluster": {
+    "spark_version": "7.3.x-scala2.12",
+    "node_type_id": "Standard_DS3_v2",
+    "num_workers": 2
+  },
+  "notebook_task": {
+    "notebook_path": "/Workspace/path/to/your/notebook"
+  }
 }
 
-def create_databricks_job():
-    job_endpoint = "{}/api/2.0/jobs/create".format(DATABRICKS_URL)
 
-    job_settings = {
-        "name": "Sample Job",
-        "new_cluster": {
-            "spark_version": "11.3.x-scala2.12",
-            "node_type_id": "Standard_DS4_v2",
-            "num_workers": 1
-        },
-        "email_notifications": {},
-        "timeout_seconds": 0,
-        "max_retries": 1
-    }
+import subprocess
+import json
 
-    response = requests.post(job_endpoint, headers=HEADERS, data=json.dumps({"job_settings": job_settings}))
+def create_and_run_databricks_job(config_file):
+    # Create a job using the JSON file
+    create_job_command = [
+        "databricks", "jobs", "create",
+        "--json-file", config_file
+    ]
+    
+    response = subprocess.run(create_job_command, capture_output=True, text=True)
+    if response.returncode != 0:
+        raise Exception(f"Error creating job: {response.stderr}")
+    
+    # Parse job id from the response
+    response_json = json.loads(response.stdout)
+    job_id = response_json["job_id"]
+    
+    # Run the job
+    run_job_command = [
+        "databricks", "jobs", "run-now",
+        "--job-id", str(job_id)
+    ]
+    
+    response = subprocess.run(run_job_command, capture_output=True, text=True)
+    if response.returncode != 0:
+        raise Exception(f"Error running job: {response.stderr}")
+    
+    print(response.stdout)
 
-    if response.status_code == 200:
-        print("Job created successfully!")
-        try:
-            job_data = response.json()
-            return job_data['job_id']
-        except Exception as e:
-            print("Error parsing response:", e)
-            return None
-    else:
-        print("Error creating job:", response.text)
-        return None
-
-job_id = create_databricks_job()
-if job_id:
-    print("Created Job ID:", job_id)
-
-
-      
-
-
+# Example usage
+if __name__ == "__main__":
+    config_file = "config.json"
+    create_and_run_databricks_job(config_file)
