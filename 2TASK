@@ -45,3 +45,44 @@ def create_and_run_databricks_job(config_file):
 if __name__ == "__main__":
     config_file = "config.json"
     create_and_run_databricks_job(config_file)
+
+
+import json
+from azure.storage.blob import BlobServiceClient
+from azure.cosmos import CosmosClient, PartitionKey
+
+# Step 1: Fetch JSON from Azure Blob Storage
+
+def fetch_blob_data(blob_account_url, container_name, blob_name, blob_sas_token):
+    blob_service_client = BlobServiceClient(account_url=blob_account_url, credential=blob_sas_token)
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+    blob_data = blob_client.download_blob().readall()
+    return json.loads(blob_data)
+
+# Step 2: Write the JSON data to Cosmos DB
+
+def write_data_to_cosmos(cosmos_url, cosmos_key, database_name, container_name, data):
+    cosmos_client = CosmosClient(cosmos_url, cosmos_key)
+    database = cosmos_client.get_database_client(database_name)
+    
+    # Assuming the container is already created with a partition key as needed
+    container = database.get_container_client(container_name)
+    
+    container.upsert_item(data)
+
+# Usage:
+
+blob_account_url = "https://your_blob_account_name.blob.core.windows.net/"
+container_name = "your_container_name"
+blob_name = "your_blob_name.json"
+blob_sas_token = "your_blob_sas_token"
+
+data = fetch_blob_data(blob_account_url, container_name, blob_name, blob_sas_token)
+
+cosmos_url = "https://your_cosmos_account_name.documents.azure.com:443/"
+cosmos_key = "your_cosmos_primary_or_secondary_key"
+database_name = "your_database_name"
+container_name = "your_container_name"
+
+write_data_to_cosmos(cosmos_url, cosmos_key, database_name, container_name, data)
+
