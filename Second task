@@ -111,3 +111,53 @@ if __name__ == "__main__":
     
     create_and_run_databricks_job(config_data, sql_file_path, text_file_path)
 
+
+
+{
+  "id": "1",
+  "name": "pipeline1",
+  "existing_cluster_id": "0317-130724-eumnsn4",
+  "appcode": "EFF",
+  "subAppCode": "D",
+  "pipelineName": "transactions",
+  "spark_jar_task": {
+    "main_class_name": "com.staticsr.ssds.calengline.exec.wfhPipelineExecutor",
+    "jar_uri": "pxo.wf/uber.sparkstreaming_util.0.5.jar"
+  },
+  "bronze": [
+    {
+      "id": "bronze1",
+      "appCode": "EFF",
+      "subAppCode": "D",
+      "pipelineName": "transactions",
+      "layer": "bronze",
+      "filename": "cust_info_bronze.json",
+      "filePath": "abfs://databricks@neepbleffdev02.dfs.core.windows.net/EFF/D/transactions/taskflows/bronze/cust_info_bronze.json"
+    }
+  ],
+  "silver": [
+    {
+      "id": "silver1",
+      "appCode": "EFF",
+      "subAppCode": "D",
+      "pipelineName": "transactions",
+      "layer": "silver",
+      "filename": "cust_trans_silver.json",
+      "filePath": "abfs://databricks@neepbleffdev02.dfs.core.windows.net/EFF/D/transactions/taskflows/silver/cust_trans_silver.json"
+    },
+    {
+      "id": "silver2",
+      "appCode": "EFF",
+      "subAppCode": "D",
+      "pipelineName": "transactions",
+      "layer": "silver",
+      "filename": "dedupeTables.sql",
+      "filePath": "abfs://databricks@neepbleffdev02.dfs.core.windows.net/EFF/D/transactions/sql/DF_dedupeTables.sql"
+    }
+  ],
+  "_rid": "WB2AJTALfNAAAAAAA=-",
+  "_self": "dbs/WB2A==/colls/WB2AJTALf=/docs/WB2AJTALfNAAAAAAA=-/",
+  "_etag": "\"100098bd-0000-0300-0000-6540400be000\"",
+  "_attachments": "attachments/",
+  "_ts": 1698958014
+}
