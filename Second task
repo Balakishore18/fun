@@ -64,3 +64,50 @@ df = spark.range(5).select(rand().alias("Random1"), rand().alias("Random2"))
 # MAGIC %python
 # Display the generated DataFrame
 display(df)
+
+
+
+import subprocess
+import sys
+import json
+from azure.cosmos_import CosmosClient, PartitionKey, exceptions
+
+def get_config_from_cosmosdb():
+    url = "https://npee-doc-sc-ff-dev-documents.azure.com:443/"
+    key = "YOUR_KEY_HERE"  # Please use environment variables or other secure methods instead of hardcoding
+    client = CosmosClient(url, credential=key)
+    database = client.get_database_client("COSMOS CONFIG")
+    container = database.get_container_client("CONFIG CONFIG")
+    
+    config_query = "SELECT * FROM c WHERE c.id = 'EFF' AND c.pipelineName='transactions'"
+    items = list(container.query_items(query=config_query, enable_cross_partition_query=True))
+    print(items[0])
+    return items[0] if items else None
+
+def create_and_run_databricks_job(config_data, sql_file_path, text_file_path):
+    config_data_json = json.dumps(config_data)
+    create_job_command = ["databricks", "jobs", "create", "--json", config_data_json]
+    
+    response = subprocess.run(create_job_command, capture_output=True, text=True)
+    if response.returncode != 0:
+        raise Exception(f"Error creating job: {response.stderr}")
+
+    job_id = json.loads(response.stdout)['job_id']
+    run_job_command = ["databricks", "jobs", "run-now", "--job-id", str(job_id), 
+                       "--jar-args", sql_file_path, text_file_path]
+
+    response = subprocess.run(run_job_command, capture_output=True, text=True)
+    if response.returncode != 0:
+        raise Exception(f"Error running job: {response.stderr}")
+
+    print(response.stdout)
+
+if __name__ == "__main__":
+    config_data = get_config_from_cosmosdb()
+    
+    # Assuming you have paths to your SQL and text files
+    sql_file_path = "/path/to/your/sql/file.sql"
+    text_file_path = "/path/to/your/text/file.txt"
+    
+    create_and_run_databricks_job(config_data, sql_file_path, text_file_path)
+
