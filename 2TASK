@@ -125,3 +125,11 @@ for blob in container_client.list_blobs():
         print(json_data)
 
 
+{
+  "config_id": "configForReadBlobJob",
+  "name": "readBlobJob",
+  "existing_cluster_id": "YOUR_EXISTING_CLUSTER_ID",
+  "notebook_task": {
+    "notebook_path": "/Users/bhongarastacestreet.com/readingBlobJob"
+  }
+}
