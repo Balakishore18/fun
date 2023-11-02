@@ -1,163 +1,41 @@
-import subprocess
-import json
-
-def create_and_run_databricks_job(notebook_path, job_name):
-    # Create a job
-    create_job_command = [
-        "databricks", "jobs", "create",
-        "--json", 
-        '{ "name": "' + job_name + '", "new_cluster": { "spark_version": "7.3.x-scala2.12", "node_type_id": "Standard_DS3_v2", "num_workers": 2 }, "notebook_task": { "notebook_path": "' + notebook_path + '" } }'
-    ]
-    
-    response = subprocess.run(create_job_command, capture_output=True, text=True)
-    
-    # Parse job id from the response (assuming the job creation was successful)
-    response_json = json.loads(response.stdout)
-    job_id = response_json["job_id"]
-    
-    # Run the job
-    run_job_command = [
-        "databricks", "jobs", "run-now",
-        "--job-id", str(job_id)
-    ]
-    
-    response = subprocess.run(run_job_command, capture_output=True, text=True)
-    print(response.stdout)
-
-# Example usage
-notebook_path = "/Workspace/path/to/your/notebook"
-job_name = "MyJobName"
-create_and_run_databricks_job(notebook_path, job_name)
-
-
 {
-  "name": "MyCSVLoaderJob",
-  "new_cluster": {
-    "spark_version": "7.3.x-scala2.12",
-    "node_type_id": "Standard_DS3_v2",
-    "num_workers": 2
-  },
-  "notebook_task": {
-    "notebook_path": "/Workspace/path/to/your/notebook"
-  }
-}
-
-
-
-# Databricks notebook source
-
-# MAGIC %md
-# MAGIC # Simple Notebook to Generate and Display Random Data
-
-# MAGIC %md
-# MAGIC ## Generate Random Data
-
-# MAGIC %python
-from pyspark.sql.functions import rand
-
-# Create a DataFrame with 5 rows and 2 columns of random numbers
-df = spark.range(5).select(rand().alias("Random1"), rand().alias("Random2"))
-
-# MAGIC %md
-# MAGIC ## Display the Data
-
-# MAGIC %python
-# Display the generated DataFrame
-display(df)
-
-
-
-import subprocess
-import sys
-import json
-from azure.cosmos_import CosmosClient, PartitionKey, exceptions
-
-def get_config_from_cosmosdb():
-    url = "https://npee-doc-sc-ff-dev-documents.azure.com:443/"
-    key = "YOUR_KEY_HERE"  # Please use environment variables or other secure methods instead of hardcoding
-    client = CosmosClient(url, credential=key)
-    database = client.get_database_client("COSMOS CONFIG")
-    container = database.get_container_client("CONFIG CONFIG")
-    
-    config_query = "SELECT * FROM c WHERE c.id = 'EFF' AND c.pipelineName='transactions'"
-    items = list(container.query_items(query=config_query, enable_cross_partition_query=True))
-    print(items[0])
-    return items[0] if items else None
-
-def create_and_run_databricks_job(config_data, sql_file_path, text_file_path):
-    config_data_json = json.dumps(config_data)
-    create_job_command = ["databricks", "jobs", "create", "--json", config_data_json]
-    
-    response = subprocess.run(create_job_command, capture_output=True, text=True)
-    if response.returncode != 0:
-        raise Exception(f"Error creating job: {response.stderr}")
-
-    job_id = json.loads(response.stdout)['job_id']
-    run_job_command = ["databricks", "jobs", "run-now", "--job-id", str(job_id), 
-                       "--jar-args", sql_file_path, text_file_path]
-
-    response = subprocess.run(run_job_command, capture_output=True, text=True)
-    if response.returncode != 0:
-        raise Exception(f"Error running job: {response.stderr}")
-
-    print(response.stdout)
-
-if __name__ == "__main__":
-    config_data = get_config_from_cosmosdb()
-    
-    # Assuming you have paths to your SQL and text files
-    sql_file_path = "/path/to/your/sql/file.sql"
-    text_file_path = "/path/to/your/text/file.txt"
-    
-    create_and_run_databricks_job(config_data, sql_file_path, text_file_path)
-
-
-
-{
-  "id": "1",
-  "name": "pipeline1",
-  "existing_cluster_id": "0317-130724-eumnsn4",
-  "appcode": "EFF",
-  "subAppCode": "D",
-  "pipelineName": "transactions",
-  "spark_jar_task": {
-    "main_class_name": "com.staticsr.ssds.calengline.exec.wfhPipelineExecutor",
-    "jar_uri": "pxo.wf/uber.sparkstreaming_util.0.5.jar"
-  },
-  "bronze": [
-    {
-      "id": "bronze1",
-      "appCode": "EFF",
-      "subAppCode": "D",
-      "pipelineName": "transactions",
-      "layer": "bronze",
-      "filename": "cust_info_bronze.json",
-      "filePath": "abfs://databricks@neepbleffdev02.dfs.core.windows.net/EFF/D/transactions/taskflows/bronze/cust_info_bronze.json"
-    }
-  ],
-  "silver": [
-    {
-      "id": "silver1",
-      "appCode": "EFF",
-      "subAppCode": "D",
-      "pipelineName": "transactions",
-      "layer": "silver",
-      "filename": "cust_trans_silver.json",
-      "filePath": "abfs://databricks@neepbleffdev02.dfs.core.windows.net/EFF/D/transactions/taskflows/silver/cust_trans_silver.json"
-    },
-    {
-      "id": "silver2",
-      "appCode": "EFF",
-      "subAppCode": "D",
-      "pipelineName": "transactions",
-      "layer": "silver",
-      "filename": "dedupeTables.sql",
-      "filePath": "abfs://databricks@neepbleffdev02.dfs.core.windows.net/EFF/D/transactions/sql/DF_dedupeTables.sql"
-    }
-  ],
-  "_rid": "WB2AJTALfNAAAAAAA=-",
-  "_self": "dbs/WB2A==/colls/WB2AJTALf=/docs/WB2AJTALfNAAAAAAA=-/",
-  "_etag": "\"100098bd-0000-0300-0000-6540400be000\"",
-  "_attachments": "attachments/",
-  "_ts": 1698958014
+    "name": "pipeline1",
+    "existing_cluster_id": "0317-130724-eumsn4",
+    "appCode": "EFF",
+    "subAppCode": "D",
+    "pipelineName": "transactions",
+    "spark_jar_uri": "com.staticsr.ssds.calengline.exec.wfHPipelineExecutor",
+    "main_class_name": "com.staticsr.ssds.calengline.exec.wfHPipelineExecutor",
+    "jar_uri": "pxo.wfy/uber.sparkstreaming.util.0.5.jar",
+    "bronze": [
+        {
+            "id": "bronze1",
+            "appCode": "EFF",
+            "subAppCode": "D",
+            "pipelineName": "transactions",
+            "layer": "bronze",
+            "filename": "cust_info_bronze.json",
+            "filePath": "abfs://databricksneepbleffdev02.core.windows.net/EFF/D/transactions/taskflows/bronze/cust_info_bronze.json"
+        }
+    ],
+    "silver": [
+        {
+            "id": "silver1",
+            "appCode": "EFF",
+            "subAppCode": "D",
+            "pipelineName": "transactions",
+            "layer": "silver",
+            "filename": "cust_trans_silver.json",
+            "filePath": "abfs://databricksneepbleffdev02.core.windows.net/EFF/D/transactions/taskflows/silver/cust_trans_silver.json"
+        },
+        {
+            "id": "silver2",
+            "appCode": "EFF",
+            "subAppCode": "D",
+            "pipelineName": "transactions",
+            "layer": "silver",
+            "filename": "dedupeTables.sql",
+            "filePath": "abfs://databricksneepbleffdev02.core.windows.net/EFF/D/transactions/sql/DF_dedupeTables.sql"
+        }
+    ]
 }
