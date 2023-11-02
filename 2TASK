@@ -293,3 +293,17 @@ if __name__ == "__main__":
     "YOUR_EMAIL2"
   ]
 }
+
+
+{
+  "config_id": "configForReadBlobJob",
+  "name": "readJarJob",
+  "existing_cluster_id": "YOUR_EXISTING_CLUSTER_ID",
+  "spark_jar_task": {
+    "main_class_name": "YOUR_MAIN_CLASS",
+    "jar_uri": "dbfs:/path/to/your/jarfile.jar",
+    "parameters": ["param1", "param2"]  // optional: any parameters your JAR might accept
+  },
+  ...  // other configuration parameters remain the same
+}
+
