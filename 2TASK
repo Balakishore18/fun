@@ -241,3 +241,55 @@ if __name__ == "__main__":
     
     create_and_run_databricks_job(config_data)
 
+
+
+
+{
+  "config_id": "configForReadBlobJob",
+  "name": "readBlobJob",
+  "existing_cluster_id": "YOUR_EXISTING_CLUSTER_ID",
+  "notebook_task": {
+    "notebook_path": "/Users/bhongarastacestreet.com/readingBlobJob"
+  },
+  "product_edition": "YOUR_PRODUCT_EDITION",
+  "pipeline_mode": "YOUR_PIPELINE_MODE",
+  "cluster_policy": "YOUR_CLUSTER_POLICY",
+  "source_code_libraries": [
+    "YOUR_LIBRARY1",
+    "YOUR_LIBRARY2"
+  ],
+  "storage_location": "YOUR_STORAGE_LOCATION",
+  "target_schema": "YOUR_TARGET_SCHEMA",
+  "compute_settings": {
+    "cpu": "YOUR_CPU_SETTING",
+    "memory": "YOUR_MEMORY_SETTING"
+  },
+  "instance_types": [
+    "YOUR_INSTANCE_TYPE1",
+    "YOUR_INSTANCE_TYPE2"
+  ],
+  "autoscaling": {
+    "min_workers": "YOUR_MIN_WORKERS",
+    "max_workers": "YOUR_MAX_WORKERS"
+  },
+  "delay_compute_shutdown": "YOUR_DELAY_TIME",
+  "single_node_cluster": true_or_false,
+  "cluster_tags": [
+    "YOUR_TAG1",
+    "YOUR_TAG2"
+  ],
+  "cloud_storage_config": {
+    "type": "YOUR_STORAGE_TYPE",
+    "credentials": "YOUR_STORAGE_CREDENTIALS"
+  },
+  "pipeline_parameters": {
+    "param1": "YOUR_VALUE1",
+    "param2": "YOUR_VALUE2"
+  },
+  "trigger_interval": "YOUR_TRIGGER_INTERVAL",
+  "allow_non_admin_driver_logs": true_or_false,
+  "email_notifications": [
+    "YOUR_EMAIL1",
+    "YOUR_EMAIL2"
+  ]
+}
