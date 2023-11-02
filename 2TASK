@@ -133,3 +133,55 @@ for blob in container_client.list_blobs():
     "notebook_path": "/Users/bhongarastacestreet.com/readingBlobJob"
   }
 }
+
+
+
+import sys
+import subprocess
+import json
+from azure.cosmos import CosmosClient
+
+def get_config_from_cosmosdb():
+    # Initialize Cosmos DB client
+    url = "YOUR_COSMOS_DB_URL"
+    key = "YOUR_COSMOS_DB_KEY"
+    client = CosmosClient(url, credential=key)
+
+    # Select database and container
+    database = client.get_database_client("YOUR_DATABASE_NAME")
+    container = database.get_container_client("YOUR_CONTAINER_NAME")
+
+    # Query configuration data
+    config_query = "SELECT * FROM c WHERE c.id = 'YOUR_CONFIG_ID'"
+    items = list(container.query_items(query=config_query, enable_cross_partition_query=True))
+
+    return items[0] if items else None
+
+def create_and_run_databricks_job(config_data):
+    # Create the Databricks job using the CLI with the provided config_file (JSON file)
+    create_job_command = ["databricks", "jobs", "create", "--json-file", config_data['config_file_path']]
+    response = subprocess.run(create_job_command, capture_output=True, text=True)
+    
+    if response.returncode != 0:
+        raise Exception(f"Error creating job: {response.stderr}")
+    
+    # Parse the job ID from the response
+    response_json = json.loads(response.stdout)
+    job_id = response_json["job_id"]
+    
+    # Run the job
+    run_job_command = ["databricks", "jobs", "run-now", "--job-id", str(job_id)]
+    response = subprocess.run(run_job_command, capture_output=True, text=True)
+    
+    if response.returncode != 0:
+        raise Exception(f"Error running job: {response.stderr}")
+
+    print(response.stdout)
+
+if __name__ == "__main__":
+    config_data = get_config_from_cosmosdb()
+    if not config_data:
+        print("Failed to fetch config data from Cosmos DB.")
+        sys.exit(1)
+    
+    create_and_run_databricks_job(config_data)
