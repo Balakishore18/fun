@@ -208,3 +208,28 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+{
+    "Information": {
+        "bronze": {
+            "id": "EFEF",
+            "appCode": "FC",
+            "pipelineName": "Information",
+            "layer": "bronze",
+            "filename": "cust_info_bronze.json",
+            "filePath": "abfss://databricks@neplebffdev02.dfs.core.windows.net/E/F/C/Information/taskflows/bronze/cust_info_bronze.json"
+        },
+        "silver": {
+            ...
+        },
+        "gold": {
+            ...
+        }
+    },
+    "Transactions-Information": {
+        "merge": {
+            ...
+        }
+    }
+    ...
+}
