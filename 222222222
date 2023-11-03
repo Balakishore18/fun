@@ -157,3 +157,54 @@ try:
 except subprocess.CalledProcessError as e:
     print(f"Error creating job: {e}")
 
+
+
+
+import requests
+import json
+
+# Constants for CosmosDB
+COSMOS_DB_ENDPOINT = "YOUR_COSMOS_DB_ENDPOINT"
+AUTH_TOKEN = "YOUR_AUTH_TOKEN"
+
+def fetch_config_from_cosmosdb():
+    """
+    Fetch configuration from CosmosDB.
+    """
+    headers = {"Authorization": AUTH_TOKEN}
+    response = requests.get(COSMOS_DB_ENDPOINT, headers=headers)
+    
+    if response.status_code != 200:
+        raise Exception("Failed to fetch configuration from CosmosDB.")
+    
+    return response.json()
+
+def get_parameters(pipeline_name, layer_name, config_data):
+    """
+    Retrieve specific parameters from the configuration.
+    """
+    return config_data.get(pipeline_name, {}).get(layer_name, {})
+
+def initiate_job_based_on_params(params):
+    """
+    Initiate a job based on the provided parameters. This function is a placeholder.
+    You can add more logic to this function based on the specific actions you want to perform with the parameters.
+    """
+    print(f"Initiating job for {params['pipelineName']} - {params['layer']}")
+    print(f"Filename: {params['filename']}")
+    print(f"Filepath: {params['filePath']}")
+    # Additional logic here
+
+def main():
+    # Fetch configuration data
+    config_data = fetch_config_from_cosmosdb()
+    
+    # Example of fetching parameters for the 'Information' pipeline and 'bronze' layer
+    bronze_params = get_parameters("Information", "bronze", config_data)
+    
+    # Initiate a job based on the bronze parameters
+    initiate_job_based_on_params(bronze_params)
+
+if __name__ == "__main__":
+    main()
+
