@@ -144,3 +144,16 @@ try:
 except subprocess.CalledProcessError as e:
     print(f"Error: {e}")
 
+
+
+try:
+    result = subprocess.run(job_create_command, shell=True, check=True, capture_output=True)
+    job_id = json.loads(result.stdout)["job_id"]
+    print(f"Job (Job ID: {job_id}) created successfully with the name '{job_name}'")
+    # Running the job immediately after creation
+    run_command = f"databricks jobs run-now --job-id {job_id}"
+    subprocess.run(run_command, shell=True, check=True)
+    print(f"Job (Job ID: {job_id}) started successfully.")
+except subprocess.CalledProcessError as e:
+    print(f"Error creating job: {e}")
+
