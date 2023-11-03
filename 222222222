@@ -145,7 +145,7 @@ except subprocess.CalledProcessError as e:
     print(f"Error: {e}")
 
 
-
+job_create_command = f'databricks jobs create --json \'{{"name": "{job_name}", "existing_cluster_id": "{job_config["existing_cluster_id"]}", "spark_jar_task": {json.dumps(job_config["spark_jar_task"])} }}\''
 try:
     result = subprocess.run(job_create_command, shell=True, check=True, capture_output=True)
     job_id = json.loads(result.stdout)["job_id"]
