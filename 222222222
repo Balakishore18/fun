@@ -1,77 +1,35 @@
-import json
-import subprocess
-from azure.cosmos import CosmosClient, PartitionKey, exceptions
-
-# CosmosDB Configuration
-url = 'your_cosmosdb_url'
-key = 'your_primary_key'
-client = CosmosClient(url, credential=key)
-database = client.get_database_client('your_database_name')
-container = database.get_container_client('your_container_name')
-
-def get_config_from_cosmosdb():
-    items = list(container.query_items(query="SELECT * FROM C", enable_cross_partition_query=True))
-    return items[0] if items else None  # Assuming only one config document
-
 def create_and_run_databricks_job(config_data):
+    # Convert the config data dictionary to a JSON string
+    config_data_json = json.dumps(config_data)
+
+    # Create Databricks job
+    create_job_command = ["databricks", "jobs", "create", "--json", config_data_json]
+    response = subprocess.run(create_job_command, capture_output=True, text=True)
+
+    if response.returncode != 0:
+        raise Exception(f"Error creating job: {response.stderr}")
+
+    # Parse the job ID from the response
+    response_json = json.loads(response.stdout)
+    job_id = response_json["job_id"]
+
     # Extract main class name, jar path, and cluster ID from config
     main_class = config_data.get('mainClass')
     jar_path = config_data.get('jarPath')
-    existing_cluster_id = config_data.get('existingClusterID')
-    
+
     for layer, pipelines in config_data['pipelines'].items():
         for pipeline in pipelines:
-            cmd = f"""
-            databricks jobs create --json '{{
-                "name": "{pipeline['pipelineName']}_{pipeline['layer']}",
-                "existing_cluster_id": "{existing_cluster_id}",
-                "spark_jar_task": {{
-                    "main_class_name": "{main_class}",
-                    "parameters": ["{pipeline['filePath']}"],
-                    "libraries": [{{
-                        "jar": "{jar_path}"
-                    }}]
-                }}
-            }}'
-            """
-            subprocess.run(cmd, shell=True)
+            run_job_command = [
+                "databricks", "jobs", "run-now", "--job-id", str(job_id),
+                "--spark-jar-task", {
+                    "main_class_name": main_class,
+                    "parameters": [pipeline['filePath'], pipeline['filename']],
+                    "libraries": [{"jar": jar_path}]
+                }
+            ]
+            response = subprocess.run(run_job_command, capture_output=True, text=True)
 
-if __name__ == "__main__":
-    config_data = get_config_from_cosmosdb()
-    if config_data:
-        create_and_run_databricks_job(config_data)
-    else:
-        print("Error: No configuration data found in CosmosDB.")
+            if response.returncode != 0:
+                raise Exception(f"Error running job: {response.stderr}")
 
-
-
-
-{
-    "mainClass": "com.yourcompany.MainClassName",
-    "jarPath": "dbfs:/path_to_your_jar/your_jar_name.jar",
-    "existingClusterID": "your_existing_cluster_id",
-    "pipelines": {
-        "bronze": [
-            {
-                "pipelineName": "transactions",
-                "layer": "bronze",
-                "filename": "cust_info_bronze.json",
-                "filePath": "EFF/D/transactions/taskflows/bronze/cust_info_bronze.json"
-            }
-        ],
-        "silver": [
-            {
-                "pipelineName": "transactions",
-                "layer": "silver",
-                "filename": "cust_trans_silver.json",
-                "filePath": "EFF/D/transactions/taskflows/silver/cust_trans_silver.json"
-            },
-            {
-                "pipelineName": "transactions",
-                "layer": "silver",
-                "filename": "DF_dedupeTables.sql",
-                "filePath": "EFF/D/transactions/sql/DF_dedupeTables.sql"
-            }
-        ]
-    }
-}
+    print(response.stdout)
