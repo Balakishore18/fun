@@ -1,0 +1,59 @@
+import json
+import subprocess
+from azure.cosmos import CosmosClient, PartitionKey, exceptions
+
+# CosmosDB Configuration (you need to adjust this with your actual values)
+url = 'your_cosmosdb_url'
+key = 'your_primary_key'
+client = CosmosClient(url, credential=key)
+database = client.get_database_client('your_database_name')
+container = database.get_container_client('your_container_name')
+
+def get_config_from_cosmosdb():
+    items = list(container.query_items(query="SELECT * FROM C", enable_cross_partition_query=True))
+    return items[0] if items else None  # Assuming only one config document
+
+def create_and_run_databricks_job(config_data, jar_path):
+    pipelines = config_data.get('pipelines', [])
+    for data in pipelines:
+        filename = data['filename']
+        file_path = data['filePath']
+
+        cmd = f"databricks jobs create --json '{{\"name\": \"{filename}\", \"new_cluster\": {{...}}, \"libraries\": [{{\"jar\": \"{jar_path}\"}}], \"spark_jar_task\": {{\"main_class_name\": \"...\"}}}}'"
+        
+        subprocess.run(cmd, shell=True)
+
+if __name__ == "__main__":
+    config_data = get_config_from_cosmosdb()
+    if config_data:
+        jar_path = config_data.get('jarPath', '')
+        create_and_run_databricks_job(config_data, jar_path)
+    else:
+        print("Error: No configuration data found in CosmosDB.")
+
+
+
+
+{
+    "jarPath": "path_to_your_constant_jar.jar",
+    "pipelines": [
+        {
+            "id": "EFF",
+            "appCode": "EFF",
+            "subAppCode": "D",
+            "pipelineName": "transactions",
+            "layer": "bronze",
+            "filename": "cust_info_bronze.json",
+            "filePath": "EFF/D/transactions/taskflows/bronze/cust_info_bronze.json"
+        },
+        {
+            "id": "EFF",
+            "appCode": "EFF",
+            "subAppCode": "D",
+            "pipelineName": "transactions",
+            "layer": "silver",
+            "filename": "cust_trans_silver.json",
+            "filePath": "EFF/D/transactions/taskflows/silver/cust_trans_silver.json"
+        }
+    ]
+}
