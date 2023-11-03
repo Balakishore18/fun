@@ -1,3 +1,7 @@
+import json
+import subprocess
+import sys
+
 def create_and_run_databricks_job(config_data):
     # Convert the config data dictionary to a JSON string
     config_data_json = json.dumps(config_data)
@@ -5,6 +9,7 @@ def create_and_run_databricks_job(config_data):
     # Create Databricks job
     create_job_command = ["databricks", "jobs", "create", "--json", config_data_json]
     response = subprocess.run(create_job_command, capture_output=True, text=True)
+    print(response)
 
     if response.returncode != 0:
         raise Exception(f"Error creating job: {response.stderr}")
@@ -13,23 +18,27 @@ def create_and_run_databricks_job(config_data):
     response_json = json.loads(response.stdout)
     job_id = response_json["job_id"]
 
-    # Extract main class name, jar path, and cluster ID from config
-    main_class = config_data.get('mainClass')
-    jar_path = config_data.get('jarPath')
+    # Extract taskFilePath and configFolder from config
+    task_file_path = config_data.get('taskFilePath')
+    config_folder = config_data.get('configFolder')
 
-    for layer, pipelines in config_data['pipelines'].items():
-        for pipeline in pipelines:
-            run_job_command = [
-                "databricks", "jobs", "run-now", "--job-id", str(job_id),
-                "--spark-jar-task", {
-                    "main_class_name": main_class,
-                    "parameters": [pipeline['filePath'], pipeline['filename']],
-                    "libraries": [{"jar": jar_path}]
-                }
-            ]
-            response = subprocess.run(run_job_command, capture_output=True, text=True)
+    # Run Databricks job with taskFilePath and configFolder as parameters
+    run_job_command = [
+        "databricks", "jobs", "run-now", "--job-id", str(job_id),
+        "--jar-args", task_file_path, config_folder
+    ]
+    response = subprocess.run(run_job_command, capture_output=True, text=True)
 
-            if response.returncode != 0:
-                raise Exception(f"Error running job: {response.stderr}")
+    if response.returncode != 0:
+        raise Exception(f"Error running job: {response.stderr}")
 
     print(response.stdout)
+
+if __name__ == "__main__":
+    config_data = get_config_from_cosmosdb()
+    
+    if not config_data:
+        print("Failed to fetch config data from Cosmos DB.")
+        sys.exit(1)
+
+    create_and_run_databricks_job(config_data)
