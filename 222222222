@@ -102,3 +102,45 @@ if __name__ == "__main__":
     "secrets": "taskFile=taskFile=trust_trans_bronze.json",
     "configFolderPath": "/databricks/onepeebibfefdev02.fs.core.windows.net/EFF/C/Transactions/taskflows/bronze"
 }
+
+
+
+import subprocess
+import json
+
+# Define job configuration
+job_name = "pxo_sftp_bronze"
+main_class = "com.test.ssds.calczine.exec.wfPipeLineExecutor"
+args = ["some_argument_here", "another_argument"]
+taskFilePath = "cut_trans_bronze.json"
+configFolder = "dbfs:/databricks/opeebbleffdev02.dfs.core.windows.net/EFF/C/Transactions/taskflows/bronze"
+cluster_id = "abs://databricks/opeebbleffdev02.dfs.core.windows.net/EFF/C/Transactions/taskflows/bronze"
+jar_path = "pxo_wtf/uber_sparkstreaming_util_0.0.5.jar"
+
+job_config = {
+    "name": job_name,
+    "existing_cluster_id": "0317-130724-eumsnnw4",
+    "spark_jar_task": {
+        "main_class_name": main_class,
+        "parameters": args,
+        "jar_uri": jar_path
+    }
+}
+
+# Create the Databricks job
+job_create_command = f"databricks jobs create --json '{json.dumps(job_config)}'"
+try:
+    response = subprocess.check_output(job_create_command, shell=True)
+    job_id = json.loads(response)["job_id"]
+    print(f"Job created successfully with ID: {job_id}.")
+
+    # Schedule the job to run at a specific time
+    # The following cron expression represents every day at 5 PM. Change it to your requirement.
+    cron_expression = "0 17 * * *"
+    schedule_command = f"databricks jobs runs-now --job-id {job_id}"
+    subprocess.run(schedule_command, shell=True, check=True)
+    print(f"Job {job_id} scheduled to run at {cron_expression}.")
+
+except subprocess.CalledProcessError as e:
+    print(f"Error: {e}")
+
