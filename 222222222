@@ -1,32 +1,69 @@
+import sys
 import json
 import subprocess
-import sys
+from azure.cosmos import CosmosClient, PartitionKey, exceptions
+
+# Cosmos DB Configuration
+COSMOS_DB_URL = "YOUR_COSMOS_DB_URL"
+COSMOS_DB_KEY = "YOUR_COSMOS_DB_KEY"
+COSMOS_DB_NAME = "YOUR_COSMOS_DB_NAME"
+COSMOS_DB_CONTAINER_NAME = "YOUR_COSMOS_DB_CONTAINER_NAME"
+
+def get_config_from_cosmodb():
+    client = CosmosClient(COSMOS_DB_URL, COSMOS_DB_KEY)
+    database = client.get_database_client(COSMOS_DB_NAME)
+    container = database.get_container_client(COSMOS_DB_CONTAINER_NAME)
+
+    query = "SELECT * FROM c WHERE c.id = '1'"
+    items = list(container.query_items(query=query, enable_cross_partition_query=True))
+
+    return items[0] if items else None
 
 def create_and_run_databricks_job(config_data):
-    # Convert the config data dictionary to a JSON string
-    config_data_json = json.dumps(config_data)
-
-    # Create Databricks job
-    create_job_command = ["databricks", "jobs", "create", "--json", config_data_json]
-    response = subprocess.run(create_job_command, capture_output=True, text=True)
-    print(response)
+    job_command = [
+        "databricks", 
+        "jobs", 
+        "create",
+        "--name", config_data["name"],
+        "--existing-cluster-id", config_data["existing_cluster_id"],
+        "--app-code", config_data["appCode"],
+        "--sub-app-code", config_data["subAppCode"],
+        "--pipeline-name", config_data["pipelineName"],
+        "--partition-name", config_data["partitionName"],
+        "--main-class-name", config_data["main_class_name"],
+        "--jar-uri", config_data["jar_uri"],
+        "--tasks-file-path", config_data["taskFilePath"],
+        "--config-folder", config_data["configFolder"],
+        "--databricks-mode", config_data["databricksMode"],
+        "--cosmos-conf-name", config_data["cosmosConfName"],
+        "--connection-conf", config_data["CONNECTION_CONF"],
+        "--secrets", config_data["secrets"],
+        "--config-folder-path", config_data["configFolderPath"]
+    ]
+    
+    response = subprocess.run(job_command, capture_output=True, text=True)
 
     if response.returncode != 0:
         raise Exception(f"Error creating job: {response.stderr}")
 
-    # Parse the job ID from the response
-    response_json = json.loads(response.stdout)
-    job_id = response_json["job_id"]
+    job_id = json.loads(response.stdout).get('job_id')
 
-    # Extract taskFilePath and configFolder from config
-    task_file_path = config_data.get('taskFilePath')
-    config_folder = config_data.get('configFolder')
-
-    # Run Databricks job with taskFilePath and configFolder as parameters
     run_job_command = [
-        "databricks", "jobs", "run-now", "--job-id", str(job_id),
-        "--jar-args", task_file_path, config_folder
+        "databricks",
+        "jobs",
+        "run-now",
+        "--job-id", str(job_id),
+        "--jar-params",
+        config_data["databricksMode"],
+        config_data["cosmosConfName"],
+        config_data["CONNECTION_CONF"],
+        config_data["secrets"],
+        config_data["taskFilePath"],
+        config_data["configFolder"],
+        config_data["jar_uri"],
+        config_data["configFolderPath"]
     ]
+    
     response = subprocess.run(run_job_command, capture_output=True, text=True)
 
     if response.returncode != 0:
@@ -35,10 +72,33 @@ def create_and_run_databricks_job(config_data):
     print(response.stdout)
 
 if __name__ == "__main__":
-    config_data = get_config_from_cosmosdb()
-    
+    config_data = get_config_from_cosmodb()
+
     if not config_data:
         print("Failed to fetch config data from Cosmos DB.")
         sys.exit(1)
 
     create_and_run_databricks_job(config_data)
+
+
+
+
+
+{
+    "id": "1",
+    "name": "tran_sftp_bronze",
+    "existing_cluster_id": "0317-130724-eumsnv4",
+    "appCode": "EFF",
+    "subAppCode": "D",
+    "pipelineName": "transactions",
+    "partitionName": "transactions",
+    "main_class_name": "com.ssds.cac.engine.exec.FHPPipelineExecutor",
+    "jar_uri": "pxo://fh/com.streamsets.ssds.cac.engine.util.0.0.5.jar",
+    "taskFilePath": "cust_trans_bronze.json",
+    "configFolder": "abfs://databricksonepeebibfefdev02.core.windows.net/EFF/C/Transactions/taskflows/bronze",
+    "databricksMode": "Y",
+    "cosmosConfName": "SNO_DP_XPH",
+    "CONNECTION_CONF": "secretScope=sno-00a",
+    "secrets": "taskFile=taskFile=trust_trans_bronze.json",
+    "configFolderPath": "/databricks/onepeebibfefdev02.fs.core.windows.net/EFF/C/Transactions/taskflows/bronze"
+}
