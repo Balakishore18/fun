@@ -233,3 +233,19 @@ if __name__ == "__main__":
     }
     ...
 }
+
+
+
+
+def insert_data_into_cosmosdb(client, database_name, container_name, job_id, jobname, dependence):
+    container_client = client.get_database_client(database_name).get_container_client(container_name)
+    new_item = {
+        'id': job_id,
+        'jobname': jobname,
+        'dependence': dependence
+    }
+    try:
+        container_client.create_item(body=new_item)
+        print(f"Item with job_id {job_id} inserted successfully.")
+    except exceptions.CosmosHttpResponseError as e:
+        print(f"Failed to insert item into Cosmos DB: {e.message}")
