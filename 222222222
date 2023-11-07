@@ -1,38 +1,68 @@
+import os
+import sys
 import json
+import subprocess
+import time
+from azure.cosmos import CosmosClient, exceptions
 
-# Assuming config_data is a string that contains your JSON list.
-# You would typically load this from a file or other source
-config_data = """
-[
-  {
-    "Transactions": {
-      "bronze": {
-        "id": "2",
-        "appCode": "EFF",
-        ... // other fields
-      },
-      "silver": {
-        // ... silver data
-      },
-      // ... other layers
-    }
-  },
-  // ... potentially more items in the list
-]
-"""
+# Global value declarations for constant variables
+endpoint = "your_cosmos_db_endpoint"  # Replace with your actual endpoint
+primary_key = "your_primary_key"  # Replace with your actual primary key
+const_db = "CONSTANT_DATABASE"
+const_containerName = "CONSTANT_CONTAINER"
 
-# Load the data into a Python object
-data_list = json.loads(config_data)
+# Create Cosmos client
+client = CosmosClient(endpoint, primary_key)
 
-# Initialize an empty list to hold the flattened bronze data
-flattened_bronze_data = []
+workflow_database = None
+workflow_container = None
+job_name = None
 
-# Iterate over each item in the data list
-for item in data_list:
-    # Check if 'Transactions' and 'bronze' keys exist in the dictionary
-    if 'Transactions' in item and 'bronze' in item['Transactions']:
-        # Add the bronze data to the list
-        flattened_bronze_data.append(item['Transactions']['bronze'])
+def get_constant_config_from_cosmosdb():
+    # Your existing implementation of the function
+    pass
 
-# Output the flattened bronze data
-print(json.dumps(flattened_bronze_data, indent=2))
+def get_config_from_cosmosdb(config_data):
+    # Your existing implementation of the function
+    pass
+
+def create_and_run_databricks_job(config_data):
+    # Your existing implementation of the function
+    pass
+
+def insert_data_into_cosmosdb(job_id):
+    # Your existing implementation of the function
+    pass
+
+# Function to watch a directory for new files
+def watch_directory(directory_to_watch, interval=10):
+    print(f"Watching directory: {directory_to_watch} for new files.")
+    already_seen = set(os.listdir(directory_to_watch))  # Initialize with the files already present
+
+    while True:
+        current_files = set(os.listdir(directory_to_watch))
+        new_files = current_files - already_seen
+        if new_files:
+            print(f"New files detected: {new_files}")
+            for file in new_files:
+                file_path = os.path.join(directory_to_watch, file)
+                print(f"Processing file: {file_path}")
+                
+                # Run the job processing logic
+                config_data = get_constant_config_from_cosmosdb()
+                if not config_data:
+                    print("Failed to fetch config data from Cosmos DB.")
+                    continue  # Skip this file and continue watching
+
+                job_config = get_config_from_cosmosdb(config_data)
+                job_id = create_and_run_databricks_job(job_config)
+                insert_data_into_cosmosdb(job_id)
+                
+            already_seen.update(new_files)
+
+        time.sleep(interval)
+
+if __name__ == '__main__':
+    # Replace with the actual directory path you want to monitor
+    FOLDER_PATH_TO_WATCH = "/path/to/your/watch/folder"  
+    watch_directory(FOLDER_PATH_TO_WATCH)
