@@ -1,16 +1,38 @@
-# Assuming config_data is a list of dictionaries
-config_data = [
-    # ... Your list of dictionaries
+import json
+
+# Assuming config_data is a string that contains your JSON list.
+# You would typically load this from a file or other source
+config_data = """
+[
+  {
+    "Transactions": {
+      "bronze": {
+        "id": "2",
+        "appCode": "EFF",
+        ... // other fields
+      },
+      "silver": {
+        // ... silver data
+      },
+      // ... other layers
+    }
+  },
+  // ... potentially more items in the list
 ]
+"""
 
-# Initialize an empty list to hold all bronze layer data
-bronze_data_list = []
+# Load the data into a Python object
+data_list = json.loads(config_data)
 
-# Loop through each item in the list
-for item in config_data:
-    # Check if the item is a dictionary and has a key 'layer' with value 'bronze'
-    if isinstance(item, dict) and item.get('layer') == 'bronze':
-        bronze_data_list.append(item)
+# Initialize an empty list to hold the flattened bronze data
+flattened_bronze_data = []
 
-# Now bronze_data_list contains all the bronze data
-print("Bronze Data:", bronze_data_list)
+# Iterate over each item in the data list
+for item in data_list:
+    # Check if 'Transactions' and 'bronze' keys exist in the dictionary
+    if 'Transactions' in item and 'bronze' in item['Transactions']:
+        # Add the bronze data to the list
+        flattened_bronze_data.append(item['Transactions']['bronze'])
+
+# Output the flattened bronze data
+print(json.dumps(flattened_bronze_data, indent=2))
