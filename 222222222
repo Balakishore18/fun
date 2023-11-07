@@ -75,3 +75,88 @@ if __name__ == '__main__':
     # Replace with the actual directory path you want to monitor
     FOLDER_PATH_TO_WATCH = "/path/to/your/watch/folder"  
     watch_directory(FOLDER_PATH_TO_WATCH)
+
+
+
+import os
+import sys
+import time
+from azure.storage.blob import BlobServiceClient
+import requests
+
+# Global value declarations for constant variables
+endpoint = "your_cosmos_db_endpoint"  # Replace with your actual endpoint
+primary_key = "your_primary_key"  # Replace with your actual primary key
+const_db = "CONSTANT_DATABASE"
+const_containerName = "CONSTANT_CONTAINER"
+
+# Create Cosmos client
+client = CosmosClient(endpoint, primary_key)
+
+workflow_database = None
+workflow_container = None
+job_name = None
+job_id = None  # Declare job_id at the global level
+
+# Your existing functions for working with Cosmos DB and Databricks
+
+# Azure Blob Storage credentials and folder to monitor
+azure_storage_connection_string = "your_azure_blob_connection_string"
+container_name = "your_container_name"
+folder_path = "your_folder_path"
+
+
+# Function to watch an Azure Blob Storage folder for new files
+def watch_azure_blob_storage(directory_to_watch, interval=10):
+    global job_id
+    print(f"Watching Azure Blob Storage folder: {container_name}/{folder_path} for new files.")
+
+    already_seen = set()
+
+    if job_id is None:
+        # Create the job here and assign the ID to global job_id
+        config_data = get_constant_config_from_cosmosdb()
+        if not config_data:
+            print("Failed to fetch config data from Cosmos DB.")
+            sys.exit(1)
+        job_config = get_config_from_cosmosdb(config_data)
+        job_id = create_databricks_job(job_config)
+
+    blob_service_client = BlobServiceClient.from_connection_string(azure_storage_connection_string)
+
+    while True:
+        new_files = set()
+        container_client = blob_service_client.get_container_client(container_name)
+        for blob in container_client.list_blobs(name_starts_with=folder_path):
+            blob_name = blob.name
+            if blob_name not in already_seen:
+                new_files.add(blob_name)
+                already_seen.add(blob_name)
+                print(f"New file detected: {blob_name}")
+
+                # Process the new file and run the Databricks job
+                process_and_run_databricks_job(blob_name)
+
+        if new_files:
+            print(f"Processing new files: {new_files}")
+
+        time.sleep(interval)
+
+
+def process_and_run_databricks_job(file_name):
+    # Replace this with your logic to process the file and trigger Databricks job
+    print(f"Processing file: {file_name}")
+
+    # Example: Trigger Databricks job using the job_id
+    if job_id:
+        # Replace with your Databricks job triggering logic
+        # You can use the job_id to run the specific Databricks job here
+        run_databricks_job(job_id)
+    else:
+        print("Databricks job not found. Make sure to create a job first.")
+
+
+if _name_ == '_main_':
+    # Replace with the actual directory path you want to monitor
+    FOLDER_PATH_TO_WATCH = "/path/to/your/watch/folder"
+    watch_azure_blob_storage(FOLDER_PATH_TO_WATCH)
