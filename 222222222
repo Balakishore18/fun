@@ -17,6 +17,7 @@ client = CosmosClient(endpoint, primary_key)
 workflow_database = None
 workflow_container = None
 job_name = None
+job_id = None  # Declare job_id at the global level
 
 def get_constant_config_from_cosmosdb():
     # Your existing implementation of the function
@@ -26,8 +27,13 @@ def get_config_from_cosmosdb(config_data):
     # Your existing implementation of the function
     pass
 
-def create_and_run_databricks_job(config_data):
-    # Your existing implementation of the function
+def create_databricks_job(config_data):
+    # Your existing implementation of the function for job creation
+    pass
+
+def run_databricks_job(job_id):
+    # Your existing implementation of the function for running the job
+    # Should take an existing job_id and trigger it
     pass
 
 def insert_data_into_cosmosdb(job_id):
@@ -36,8 +42,18 @@ def insert_data_into_cosmosdb(job_id):
 
 # Function to watch a directory for new files
 def watch_directory(directory_to_watch, interval=10):
+    global job_id
     print(f"Watching directory: {directory_to_watch} for new files.")
     already_seen = set(os.listdir(directory_to_watch))  # Initialize with the files already present
+
+    if job_id is None:
+        # Create the job here and assign the ID to global job_id
+        config_data = get_constant_config_from_cosmosdb()
+        if not config_data:
+            print("Failed to fetch config data from Cosmos DB.")
+            sys.exit(1)
+        job_config = get_config_from_cosmosdb(config_data)
+        job_id = create_databricks_job(job_config)
 
     while True:
         current_files = set(os.listdir(directory_to_watch))
@@ -48,15 +64,8 @@ def watch_directory(directory_to_watch, interval=10):
                 file_path = os.path.join(directory_to_watch, file)
                 print(f"Processing file: {file_path}")
                 
-                # Run the job processing logic
-                config_data = get_constant_config_from_cosmosdb()
-                if not config_data:
-                    print("Failed to fetch config data from Cosmos DB.")
-                    continue  # Skip this file and continue watching
-
-                job_config = get_config_from_cosmosdb(config_data)
-                job_id = create_and_run_databricks_job(job_config)
-                insert_data_into_cosmosdb(job_id)
+                # Run the job with the existing job ID
+                run_databricks_job(job_id)
                 
             already_seen.update(new_files)
 
