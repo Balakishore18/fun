@@ -160,3 +160,6 @@ if _name_ == '_main_':
     # Replace with the actual directory path you want to monitor
     FOLDER_PATH_TO_WATCH = "/path/to/your/watch/folder"
     watch_azure_blob_storage(FOLDER_PATH_TO_WATCH)
+
+
+I have worked on retrieving necessary parameters for Databricks job creation from Cosmos DB, and developed a Python utility to create, run, and log these jobs in a dedicated Cosmos DB container.
