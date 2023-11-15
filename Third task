@@ -203,3 +203,83 @@ if st.button('Show DAG Graph'):
         # If the request failed, show an error message
         st.error('Failed to retrieve the DAG graph.')
 
+
+
+
+
+from fastapi import FastAPI, HTTPException
+from azure.cosmos import CosmosClient, exceptions
+from pydantic import BaseModel
+from typing import List, Optional
+import uuid
+from datetime import datetime
+
+app = FastAPI()
+
+# Cosmos DB configuration
+COSMOS_DB_URL = 'your_cosmos_db_url'
+COSMOS_DB_KEY = 'your_cosmos_db_key'
+COSMOS_DB_DATABASE_NAME = 'your_database_name'
+COSMOS_DB_CONTAINER_NAME = 'your_container_name'
+
+# Initialize Cosmos DB client
+client = CosmosClient(COSMOS_DB_URL, credential=COSMOS_DB_KEY)
+database = client.get_database_client(COSMOS_DB_DATABASE_NAME)
+container = database.get_container_client(COSMOS_DB_CONTAINER_NAME)
+
+class TaskStatus(BaseModel):
+    task_id: str
+    state: str
+    duration: Optional[int]
+    operator: Optional[str]
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+
+class DagStatus(BaseModel):
+    dag_id: str
+    status: str
+    timestamp: datetime = datetime.utcnow()
+    run_id: Optional[str] = None
+    execution_date: Optional[datetime] = None
+    duration: Optional[int] = None
+    state: Optional[str] = None
+    tasks: Optional[List[TaskStatus]] = []
+    errors: Optional[List[str]] = []
+    user: Optional[str] = None
+    tags: Optional[List[str]] = []
+    notes: Optional[str] = None
+
+@app.post('/store_dag_status')
+def store_dag_status(dag_status: DagStatus):
+    # Automatically generate a unique ID and run ID if not provided
+    document_id = str(uuid.uuid4())
+    run_id = run_id or f"{dag_status.dag_id}__{dag_status.timestamp.isoformat()}"
+    
+    # Construct the document to be stored
+    dag_status_document = dag_status.dict()
+    dag_status_document['id'] = document_id
+    dag_status_document['run_id'] = run_id
+    
+    try:
+        container.upsert_item(dag_status_document)
+        return {"message": "DAG status stored successfully", "id": document_id}
+    except exceptions.CosmosHttpResponseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/get_dag_status/{dag_id}')
+def get_dag_status(dag_id: str):
+    try:
+        query = "SELECT * FROM c WHERE c.dag_id = @dag_id ORDER BY c.timestamp DESC"
+        parameters = [{"name": "@dag_id", "value": dag_id}]
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True
+        ))
+        if not items:
+            raise HTTPException(status_code=404, detail="DAG status not found")
+        # Return the most recent status
+        return items[0]
+    except exceptions.CosmosHttpResponseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
