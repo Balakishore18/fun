@@ -1,0 +1,90 @@
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from datetime import datetime
+import requests
+from azure.cosmos import CosmosClient, PartitionKey
+import json
+
+# --- Cosmos DB Configuration (Fill these with your details) ---
+cosmos_url = 'YOUR_COSMOS_DB_URL'
+cosmos_key = 'YOUR_COSMOS_DB_KEY'
+cosmos_database_name = 'YOUR_DATABASE_NAME'
+cosmos_container_name = 'YOUR_CONTAINER_NAME'
+client = CosmosClient(cosmos_url, credential=cosmos_key)
+database = client.create_database_if_not_exists(id=cosmos_database_name)
+container = database.create_container_if_not_exists(
+    id=cosmos_container_name, 
+    partition_key=PartitionKey(path="/id"),
+    offer_throughput=400
+)
+
+# --- Functions for Airflow Tasks ---
+def get_dag_id_from_cosmos_db():
+    # Implement function to retrieve DAG ID from Cosmos DB
+    pass
+
+def job_1(**kwargs):
+    # Implement the first job
+    pass
+
+def job_2(**kwargs):
+    # Implement the second job, dependent on the first
+    pass
+
+def upsert_dag_details_to_cosmos_db(**kwargs):
+    # Implement function to upsert DAG details into Cosmos DB
+    pass
+
+def generate_dag_graph(**kwargs):
+    # Implement function to generate DAG graph
+    pass
+
+# --- DAG Definition ---
+default_args = {
+    'owner': 'airflow',
+    'start_date': datetime(2023, 1, 1),
+}
+
+dag = DAG(
+    dag_id='dynamic_dag',
+    default_args=default_args,
+    schedule_interval='@daily'
+)
+
+# Task to get DAG ID from Cosmos DB
+get_dag_id_task = PythonOperator(
+    task_id='get_dag_id',
+    python_callable=get_dag_id_from_cosmos_db,
+    dag=dag
+)
+
+# First job in the workflow
+job_1_task = PythonOperator(
+    task_id='job_1',
+    python_callable=job_1,
+    dag=dag
+)
+
+# Second job in the workflow, dependent on the first
+job_2_task = PythonOperator(
+    task_id='job_2',
+    python_callable=job_2,
+    dag=dag
+)
+
+# Task to upsert DAG details into Cosmos DB
+upsert_dag_details_task = PythonOperator(
+    task_id='upsert_dag_details',
+    python_callable=upsert_dag_details_to_cosmos_db,
+    dag=dag
+)
+
+# Task to generate DAG graph
+generate_dag_graph_task = PythonOperator(
+    task_id='generate_dag_graph',
+    python_callable=generate_dag_graph,
+    dag=dag
+)
+
+# Setting up Dependencies
+get_dag_id_task >> job_1_task >> job_2_task >> [upsert_dag_details_task, generate_dag_graph_task]
