@@ -87,4 +87,119 @@ generate_dag_graph_task = PythonOperator(
 )
 
 # Setting up Dependencies
+
+
+
+
+
+from flask import Flask, jsonify, request
+from azure.cosmos import CosmosClient, PartitionKey, exceptions
+from graphviz import Digraph
+import base64
+from io import BytesIO
+
+app = Flask(__name__)
+
+# Cosmos DB configuration
+cosmos_url = 'YOUR_COSMOS_DB_URL'
+cosmos_key = 'YOUR_COSMOS_DB_KEY'
+cosmos_database_name = 'YOUR_DATABASE_NAME'
+cosmos_container_name = 'YOUR_CONTAINER_NAME'
+client = CosmosClient(cosmos_url, credential=cosmos_key)
+database = client.get_database_client(cosmos_database_name)
+container = database.get_container_client(cosmos_container_name)
+
+# Function to get DAG details from Cosmos DB
+def get_dag_details(dag_id):
+    query = "SELECT * FROM c WHERE c.dag_id = @dag_id"
+    parameters = [{"name": "@dag_id", "value": dag_id}]
+    try:
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True
+        ))
+        return items[0] if items else None
+    except exceptions.CosmosHttpResponseError as e:
+        print(f'An error occurred: {e.message}')
+        return None
+
+# Function to generate and return the DAG graph in base64 encoding
+def generate_and_return_dag_graph(dag_details):
+    # Create a new directed graph
+    dot = Digraph(comment='DAG')
+
+    # Placeholder: Add your logic here to add nodes and edges from the dag_details
+    # For example:
+    # for node in dag_details['nodes']:
+    #     dot.node(node)
+    # for edge in dag_details['edges']:
+    #     dot.edge(edge['start'], edge['end'])
+
+    # Save the graph to a BytesIO object in PNG format
+    png_image = BytesIO()
+    dot.format = 'png'
+    dot.render(png_image)
+    png_image.seek(0)
+
+    # Encode the image data to base64
+    encoded_image = base64.b64encode(png_image.read()).decode('utf-8')
+    return encoded_image
+
+# API endpoint to get the DAG graph
+@app.route('/dag_graph', methods=['GET'])
+def dag_graph():
+    dag_id = request.args.get('dag_id')
+    if not dag_id:
+        return jsonify({"error": "DAG ID is required"}), 400
+
+    dag_details = get_dag_details(dag_id)
+    if not dag_details:
+        return jsonify({"error": "DAG not found"}), 404
+
+    # Generate the graph image from the DAG details
+    encoded_image = generate_and_return_dag_graph(dag_details)
+    return jsonify({"graph_image_data": encoded_image})
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
 get_dag_id_task >> job_1_task >> job_2_task >> [upsert_dag_details_task, generate_dag_graph_task]
+
+
+
+
+import streamlit as st
+import requests
+import base64
+from PIL import Image
+from io import BytesIO
+
+st.title('DAG Viewer')
+
+# The URL of your Flask API
+API_URL = 'http://localhost:5000/dag_graph'
+
+dag_id = st.text_input('Enter DAG ID')
+
+if st.button('Show DAG Graph'):
+    # Make a GET request to the Flask API to retrieve the graph
+    response = requests.get(f"{API_URL}?dag_id={dag_id}")
+    
+    # If the response is successful, extract the graph image data
+    if response.status_code == 200:
+        data = response.json()
+        graph_image_data = data['graph_image_data']
+        
+        # Decode the base64 image data
+        decoded_image = base64.b64decode(graph_image_data)
+        
+        # Convert the binary data to an image
+        image = Image.open(BytesIO(decoded_image))
+        
+        # Display the image in Streamlit
+        st.image(image, use_column_width=True)
+    else:
+        # If the request failed, show an error message
+        st.error('Failed to retrieve the DAG graph.')
+
