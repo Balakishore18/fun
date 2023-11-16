@@ -283,3 +283,52 @@ def get_dag_status(dag_id: str):
     except exceptions.CosmosHttpResponseError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+import requests
+from azure.cosmos import CosmosClient, exceptions
+
+# Cosmos DB configuration
+COSMOS_DB_URL = 'your_cosmos_db_url'
+COSMOS_DB_KEY = 'your_cosmos_db_key'
+COSMOS_DB_DATABASE_NAME = 'your_database_name'
+COSMOS_DB_CONTAINER_NAME = 'your_container_name'
+
+# Airflow configuration
+AIRFLOW_URL = 'http://your-airflow-webserver-url'
+
+# Initialize Cosmos DB client
+cosmos_client = CosmosClient(COSMOS_DB_URL, credential=COSMOS_DB_KEY)
+database = cosmos_client.get_database_client(COSMOS_DB_DATABASE_NAME)
+container = database.get_container_client(COSMOS_DB_CONTAINER_NAME)
+
+def get_dag_id_from_cosmos():
+    try:
+        # Query to get the latest DAG ID (modify query as per your data structure)
+        query = "SELECT TOP 1 c.dag_id FROM c ORDER BY c._ts DESC"
+        items = list(container.query_items(query=query, enable_cross_partition_query=True))
+        if items:
+            return items[0]['dag_id']
+        else:
+            return None
+    except exceptions.CosmosException as e:
+        print(f"Cosmos DB error occurred: {e}")
+        return None
+
+def get_dag_status_from_airflow(dag_id):
+    endpoint = f"{AIRFLOW_URL}/api/v1/dags/{dag_id}"
+    try:
+        response = requests.get(endpoint)
+        response.raise_for_status()
+        dag_data = response.json()
+        return dag_data.get('is_paused')  # Or other status information
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}")
+    except Exception as err:
+        print(f"Error occurred: {err}")
+
+# Main process
+dag_id = get_dag_id_from_cosmos()
+if dag_id:
+    dag_status = get_dag_status_from_airflow(dag_id)
+    print(f"DAG ID: {dag_id}, Status: {'Paused' if dag_status else 'Active'}")
+else:
+    print("No DAG ID found in Cosmos DB.")
