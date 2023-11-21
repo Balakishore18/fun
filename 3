@@ -108,3 +108,72 @@ while True:
             process_new_file(file, sftp_username, time.time())
     
     time.sleep(60)  # Sleep for 1 minute before checking again
+import paramiko
+from azure.cosmos import CosmosClient
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import os
+import json
+import time
+
+# SFTP Configuration
+sftp_host = 'your_sftp_host'
+sftp_port = 22
+sftp_username = 'your_username'
+sftp_password = 'your_password'
+sftp_directory = '/path/to/sftp/directory'
+
+# Cosmos DB Configuration
+cosmos_db_endpoint = 'your_cosmos_db_endpoint'
+cosmos_db_key = 'your_cosmos_db_key'
+cosmos_db_database_name = 'your_database_name'
+cosmos_db_container_name = 'your_container_name'
+
+# Initialize SFTP client
+transport = paramiko.Transport((sftp_host, sftp_port))
+transport.connect(username=sftp_username, password=sftp_password)
+sftp = paramiko.SFTPClient.from_transport(transport)
+
+# Initialize Cosmos DB client
+cosmos_client = CosmosClient(cosmos_db_endpoint, cosmos_db_key)
+database = cosmos_client.get_database_client(cosmos_db_database_name)
+container = database.get_container_client(cosmos_db_container_name)
+
+class SFTPHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        self.process_event(event)
+
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+        self.process_event(event)
+
+    def process_event(self, event):
+        filename = event.src_path
+        username = sftp_username  # You may need to customize this based on your authentication method
+        timestamp = time.time()
+
+        item = {
+            'filename': filename,
+            'uploaded_by': username,
+            'timestamp': timestamp
+        }
+        container.upsert_item(item)
+
+# Set up the SFTP event handler
+event_handler = SFTPHandler()
+
+# Set up the SFTP directory observer
+observer = Observer()
+observer.schedule(event_handler, path=sftp_directory, recursive=False)
+observer.start()
+
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    observer.stop()
+
+observer.join()
