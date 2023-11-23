@@ -1,179 +1,78 @@
-from azure.cosmos import CosmosClient, exceptions
-import requests
-
-# Cosmos DB configuration
-COSMOS_DB_URL = 'your_cosmos_db_url'
-COSMOS_DB_KEY = 'your_cosmos_db_key'
-COSMOS_DB_DATABASE_NAME = 'your_database_name'
-COSMOS_DB_CONTAINER_NAME = 'your_container_name'
-
-# Airflow configuration
-AIRFLOW_URL = 'http://your_airflow_url'
-
-# Initialize Cosmos DB client
-cosmos_client = CosmosClient(COSMOS_DB_URL, credential=COSMOS_DB_KEY)
-database = cosmos_client.get_database_client(COSMOS_DB_DATABASE_NAME)
-container = database.get_container_client(COSMOS_DB_CONTAINER_NAME)
-
-def get_dag_id_from_cosmos():
-    query = "SELECT c.dagId FROM c ORDER BY c._ts DESC LIMIT 1"
-    try:
-        items = list(container.query_items(query=query, enable_cross_partition_query=True))
-        return items[0]['dagId'] if items else None
-    except exceptions.CosmosException as e:
-        print(f"Error querying Cosmos DB: {e}")
-        return None
-
-def get_airflow_dag_status(dag_id):
-    dag_endpoint = f"{AIRFLOW_URL}/api/v1/dags/{dag_id}"
-    dag_runs_endpoint = f"{AIRFLOW_URL}/api/v1/dags/{dag_id}/dagRuns"
-    try:
-        dag_response = requests.get(dag_endpoint)
-        dag_runs_response = requests.get(dag_runs_endpoint)
-        dag_response.raise_for_status()
-        dag_runs_response.raise_for_status()
-        return dag_response.json(), dag_runs_response.json()
-    except requests.RequestException as e:
-        print(f"Error fetching from Airflow: {e}")
-        return None, None
-
-def store_dag_info_in_cosmos(dag_id, dag_status, dag_runs):
-    document = {
-        "id": dag_id,
-        "status": dag_status,
-        "runs": dag_runs
-    }
-    try:
-        container.upsert_item(document)
-        print("DAG information stored successfully in Cosmos DB.")
-    except exceptions.CosmosException as e:
-        print(f"Error storing data in Cosmos DB: {e}")
-
-# Main execution workflow
-dag_id = get_dag_id_from_cosmos()
-if dag_id:
-    dag_status, dag_runs = get_airflow_dag_status(dag_id)
-    if dag_status and dag_runs:
-        store_dag_info_in_cosmos(dag_id, dag_status, dag_runs)
-    else:
-        print("Failed to retrieve DAG details from Airflow.")
-else:
-    print("No DAG ID found in Cosmos DB.")
-import paramiko
+import pysftp
 from azure.cosmos import CosmosClient
-import os
-import time
-
-# SFTP Configuration
-sftp_host = 'your_sftp_host'
-sftp_port = 22
-sftp_username = 'your_username'
-sftp_password = 'your_password'
-sftp_directory = '/path/to/sftp/directory'
-
-# Cosmos DB Configuration
-cosmos_db_endpoint = 'your_cosmos_db_endpoint'
-cosmos_db_key = 'your_cosmos_db_key'
-cosmos_db_database_name = 'your_database_name'
-cosmos_db_container_name = 'your_container_name'
-
-# Initialize SFTP client
-transport = paramiko.Transport((sftp_host, sftp_port))
-transport.connect(username=sftp_username, password=sftp_password)
-sftp = paramiko.SFTPClient.from_transport(transport)
-
-# Initialize Cosmos DB client
-cosmos_client = CosmosClient(cosmos_db_endpoint, cosmos_db_key)
-database = cosmos_client.get_database_client(cosmos_db_database_name)
-container = database.get_container_client(cosmos_db_container_name)
-
-def process_new_file(filename, username, timestamp):
-    # You can customize this function to suit your needs
-    item = {
-        'filename': filename,
-        'uploaded_by': username,
-        'timestamp': timestamp
-    }
-    container.upsert_item(item)
-
-# Check for new files in SFTP directory
-while True:
-    files = sftp.listdir(sftp_directory)
-    for file in files:
-        file_path = os.path.join(sftp_directory, file)
-        
-        # Assuming the file was uploaded recently, you may want to check based on your requirements
-        # For example, check if the file was modified in the last 5 minutes
-        if (time.time() - os.path.getmtime(file_path)) < 300:
-            process_new_file(file, sftp_username, time.time())
-    
-    time.sleep(60)  # Sleep for 1 minute before checking again
-import paramiko
-from azure.cosmos import CosmosClient
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-import os
 import json
+import os
+import datetime
 import time
 
-# SFTP Configuration
+# SFTP server credentials
 sftp_host = 'your_sftp_host'
 sftp_port = 22
-sftp_username = 'your_username'
-sftp_password = 'your_password'
-sftp_directory = '/path/to/sftp/directory'
+sftp_username = 'your_sftp_username'
+sftp_password = 'your_sftp_password'
+sftp_remote_path = 'sftp server path'
 
-# Cosmos DB Configuration
-cosmos_db_endpoint = 'your_cosmos_db_endpoint'
-cosmos_db_key = 'your_cosmos_db_key'
-cosmos_db_database_name = 'your_database_name'
-cosmos_db_container_name = 'your_container_name'
+# Cosmos DB credentials
+cosmosdb_endpoint = 'your_cosmosdb_endpoint'
+cosmosdb_key = 'your_cosmosdb_key'
+cosmosdb_database_name = 'your_database_name'
+cosmosdb_container_name = 'your_container_name'
 
-# Initialize SFTP client
-transport = paramiko.Transport((sftp_host, sftp_port))
-transport.connect(username=sftp_username, password=sftp_password)
-sftp = paramiko.SFTPClient.from_transport(transport)
+# File to store the last known state of the SFTP directory
+state_file = 'sftp_state.json'
 
-# Initialize Cosmos DB client
-cosmos_client = CosmosClient(cosmos_db_endpoint, cosmos_db_key)
-database = cosmos_client.get_database_client(cosmos_db_database_name)
-container = database.get_container_client(cosmos_db_container_name)
+# Connect to Cosmos DB
+cosmos_client = CosmosClient(cosmosdb_endpoint, cosmosdb_key)
+database = cosmos_client.get_database_client(cosmosdb_database_name)
+container = database.get_container_client(cosmosdb_container_name)
 
-class SFTPHandler(FileSystemEventHandler):
-    def on_created(self, event):
-        if event.is_directory:
-            return
-        self.process_event(event)
+def get_last_state():
+    if os.path.exists(state_file):
+        with open(state_file, 'r') as file:
+            return json.load(file)
+    return {}
 
-    def on_modified(self, event):
-        if event.is_directory:
-            return
-        self.process_event(event)
+def set_last_state(state):
+    with open(state_file, 'w') as file:
+        json.dump(state, file)
 
-    def process_event(self, event):
-        filename = event.src_path
-        username = sftp_username  # You may need to customize this based on your authentication method
-        timestamp = time.time()
+def log_file_details(file_name, file_stat):
+    file_size = file_stat.st_size
+    last_modified = datetime.datetime.fromtimestamp(file_stat.st_mtime).isoformat()
 
-        item = {
-            'filename': filename,
-            'uploaded_by': username,
-            'timestamp': timestamp
-        }
-        container.upsert_item(item)
+    # Log the details to Cosmos DB
+    document = {
+        'id': file_name + "_" + last_modified,  # Unique ID for the document
+        'fileName': file_name,
+        'fileSize': file_size,
+        'lastModified': last_modified,
+        'remoteFilePath': os.path.join(sftp_remote_path, file_name)
+    }
 
-# Set up the SFTP event handler
-event_handler = SFTPHandler()
+    container.create_item(body=document)
+    print(f"Details of file '{file_name}' logged to Cosmos DB.")
 
-# Set up the SFTP directory observer
-observer = Observer()
-observer.schedule(event_handler, path=sftp_directory, recursive=False)
-observer.start()
+def check_for_new_files():
+    last_state = get_last_state()
+    new_state = {}
 
-try:
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    observer.stop()
+    with pysftp.Connection(sftp_host, username=sftp_username, password=sftp_password, port=sftp_port) as sftp:
+        sftp.chdir(sftp_remote_path)
+        for file_name in sftp.listdir():
+            file_path = os.path.join(sftp_remote_path, file_name)
+            file_stat = sftp.stat(file_path)
+            new_state[file_name] = file_stat.st_mtime
 
-observer.join()
+            # If the file is new or modified
+            if file_name not in last_state or last_state[file_name] != file_stat.st_mtime:
+                log_file_details(file_name, file_stat)
+
+    set_last_state(new_state)
+
+# Polling interval in seconds
+polling_interval = 60
+
+# Main loop
+while True:
+    check_for_new_files()
+    time.sleep(polling_interval)
