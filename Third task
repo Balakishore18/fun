@@ -25,3 +25,30 @@ else:
 
 
 response = requests.get(url, auth=HTTPBasicAuth('your_username', 'your_password'))
+
+
+
+
+
+
+import requests
+from requests.auth import HTTPBasicAuth
+
+# Replace these with your Airflow details
+airflow_base_url = "http://your-airflow-url.com"  # URL to your Airflow instance
+dag_id = "your_dag_id"  # The ID of the DAG you want to retrieve information about
+username = "your_username"  # Airflow username, if authentication is enabled
+password = "your_password"  # Airflow password, if authentication is enabled
+
+# Endpoint to get the DAG details
+url = f"{airflow_base_url}/api/v1/dags/{dag_id}"
+
+# Make the GET request
+response = requests.get(url, auth=HTTPBasicAuth(username, password))
+
+# Check if the request was successful
+if response.status_code == 200:
+    dag_info = response.json()
+    print(dag_info)
+else:
+    print("Failed to retrieve DAG information:", response.status_code, response.text)
