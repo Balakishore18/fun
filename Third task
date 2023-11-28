@@ -1,54 +1,35 @@
-import requests
-from requests.auth import HTTPBasicAuth
+import paramiko
 
-# Replace with your actual URL and endpoint
-url = "http://airflow.example.com/api/v1/dags/example_dag_id/dagRuns"
+# Set up the connection parameters based on your server.
+sftp_host = "your.sftp.host"
+sftp_port = 22  # or your custom port
+sftp_username = "your_username"
+sftp_password = "your_password"
 
-# If you need to include headers such as tokens
-headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer YOUR_TOKEN',  # Replace with your actual token if needed
-    'User-Agent': 'Mozilla/5.0',  # Mimicking a common browser
-}
+# Initialize the SSH client
+client = paramiko.SSHClient()
 
-# If you need to bypass SSL verification (not recommended for production)
-response = requests.get(url, headers=headers, verify=False)
+# Automatically add the server's SSH key (unsafe for production, see below)
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-# Make sure you use the correct auth method: HTTPBasicAuth for basic, or OAuth for token-based
-response = requests.get(url, headers=headers, auth=HTTPBasicAuth('username', 'password'))
+try:
+    # Connect to the SFTP server
+    client.connect(sftp_host, port=sftp_port, username=sftp_username, password=sftp_password)
+    
+    # Open an SFTP session on the SSH server
+    sftp = client.open_sftp()
+    
+    # Navigate to the directory and list files
+    sftp.chdir('your/directory/path')
+    for filename in sftp.listdir():
+        print(filename)
+    
+    # Close the SFTP session
+    sftp.close()
 
-# Check the status code and content of the response
-if response.status_code == 200:
-    print("Success:", response.json())
-else:
-    print("Error:", response.status_code, response.text)
+except Exception as e:
+    print(f"An error occurred: {e}")
 
-
-response = requests.get(url, auth=HTTPBasicAuth('your_username', 'your_password'))
-
-
-
-
-
-
-import requests
-from requests.auth import HTTPBasicAuth
-
-# Replace these with your Airflow details
-airflow_base_url = "http://your-airflow-url.com"  # URL to your Airflow instance
-dag_id = "your_dag_id"  # The ID of the DAG you want to retrieve information about
-username = "your_username"  # Airflow username, if authentication is enabled
-password = "your_password"  # Airflow password, if authentication is enabled
-
-# Endpoint to get the DAG details
-url = f"{airflow_base_url}/api/v1/dags/{dag_id}"
-
-# Make the GET request
-response = requests.get(url, auth=HTTPBasicAuth(username, password))
-
-# Check if the request was successful
-if response.status_code == 200:
-    dag_info = response.json()
-    print(dag_info)
-else:
-    print("Failed to retrieve DAG information:", response.status_code, response.text)
+finally:
+    # Close the client connection
+    client.close()
