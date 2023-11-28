@@ -123,3 +123,58 @@ dag_id_to_retrieve = "your_manual_dag_id"
 
 # Call the function to get Airflow data for the specified DAG
 get_dag_data(dag_id_to_retrieve)
+
+
+import requests
+from requests.auth import HTTPBasicAuth
+from azure.cosmos import CosmosClient
+
+def get_and_store_dag_data(cosmos_db_endpoint, cosmos_db_key, cosmos_db_database_id, cosmos_db_container_id, manual_dag_id):
+    # Replace with your Airflow credentials
+    airflow_username = "your_airflow_username"
+    airflow_password = "your_airflow_password"
+    
+    # Replace with your Airflow API endpoint for DAGs and DAG Runs
+    airflow_api_endpoint = "http://your-airflow-api-endpoint/api/v1"
+
+    try:
+        # Make GET request to Airflow API to get DAG information
+        dag_info_response = requests.get(f"{airflow_api_endpoint}/dags/{manual_dag_id}", auth=HTTPBasicAuth(airflow_username, airflow_password))
+        dag_info = dag_info_response.json()
+
+        # Make GET request to Airflow API to get DAG runs
+        dag_runs_response = requests.get(f"{airflow_api_endpoint}/dags/{manual_dag_id}/dagRuns", auth=HTTPBasicAuth(airflow_username, airflow_password))
+        dag_runs = dag_runs_response.json()
+
+        # Initialize Cosmos DB client
+        cosmos_client = CosmosClient(cosmos_db_endpoint, cosmos_db_key)
+        database = cosmos_client.get_database_client(cosmos_db_database_id)
+        container = database.get_container_client(cosmos_db_container_id)
+
+        # Assuming you want to store the data in Cosmos DB
+        # Replace this with your specific data model and container logic
+        item = {
+            "dag_id": manual_dag_id,
+            "dag_info": dag_info,
+            "dag_runs": dag_runs
+        }
+
+        # Insert the item into Cosmos DB container
+        container.upsert_item(item)
+
+        print(f"Data for DAG '{manual_dag_id}' successfully retrieved and stored in Cosmos DB.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Specify the Cosmos DB details
+cosmos_db_endpoint = "your_cosmos_db_endpoint"
+cosmos_db_key = "your_cosmos_db_key"
+cosmos_db_database_id = "your_cosmos_db_database_id"
+cosmos_db_container_id = "your_cosmos_db_container_id"
+
+# Specify the DAG ID manually
+dag_id_to_retrieve = "your_manual_dag_id"
+
+# Call the function to get Airflow data for the specified DAG and store in Cosmos DB
+get_and_store_dag_data(cosmos_db_endpoint, cosmos_db_key, cosmos_db_database_id, cosmos_db_container_id, dag_id_to_retrieve)
