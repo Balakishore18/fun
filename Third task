@@ -131,3 +131,63 @@ def get_airflow_data():
 
 # Call the function to get Airflow data
 get_airflow_data()
+
+
+import requests
+from requests.auth import HTTPBasicAuth
+from azure.cosmos import CosmosClient
+
+def get_airflow_data():
+    # Replace with your Airflow credentials
+    airflow_username = "your_airflow_username"
+    airflow_password = "your_airflow_password"
+    
+    # Replace with your Airflow API endpoints for DAGs and DAG Runs
+    dag_api_endpoint = "http://your-airflow-api-endpoint/api/v1/dags"
+    dag_runs_api_endpoint = "http://your-airflow-api-endpoint/api/v1/dagRuns"
+
+    # Replace with your Cosmos DB connection details
+    cosmos_db_endpoint = "https://your-cosmos-db-name.documents.azure.com:443/"
+    cosmos_db_key = "your_cosmos_db_key"
+    cosmos_db_database_id = "your_database_id"
+    cosmos_db_container_id = "your_container_id"
+
+    # Initialize Cosmos DB client
+    cosmos_client = CosmosClient(cosmos_db_endpoint, cosmos_db_key)
+    database = cosmos_client.get_database_client(cosmos_db_database_id)
+    container = database.get_container_client(cosmos_db_container_id)
+
+    try:
+        # Make GET request to Airflow API to get DAGs
+        dag_response = requests.get(dag_api_endpoint, auth=HTTPBasicAuth(airflow_username, airflow_password))
+        dags = dag_response.json()
+
+        for dag in dags:
+            dag_id = dag["dag_id"]
+
+            # Make GET request to Airflow API to get DAG information
+            dag_info_response = requests.get(f"{dag_api_endpoint}/{dag_id}", auth=HTTPBasicAuth(airflow_username, airflow_password))
+            dag_info = dag_info_response.json()
+
+            # Make GET request to Airflow API to get DAG runs
+            dag_runs_response = requests.get(f"{dag_runs_api_endpoint}/{dag_id}/dagRuns", auth=HTTPBasicAuth(airflow_username, airflow_password))
+            dag_runs = dag_runs_response.json()
+
+            # Assuming you want to store the data in Cosmos DB
+            # Replace this with your specific data model and container logic
+            item = {
+                "dag_id": dag_id,
+                "dag_info": dag_info,
+                "dag_runs": dag_runs
+            }
+
+            # Insert the item into Cosmos DB container
+            container.upsert_item(item)
+
+        print("Data successfully retrieved and stored in Cosmos DB.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Call the function to get Airflow data and store in Cosmos DB
+get_airflow_data()
