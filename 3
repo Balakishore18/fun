@@ -79,5 +79,47 @@ while True:
 
 
 
+
+
+
 # SFTP server connection string
 sftp_connection_string = "sftp://your_username:your_password@your_sftp_host:your_sftp_port"
+
+
+
+
+import requests
+from requests.auth import HTTPBasicAuth
+
+def get_dag_data(manual_dag_id):
+    # Replace with your Airflow credentials
+    airflow_username = "your_airflow_username"
+    airflow_password = "your_airflow_password"
+    
+    # Replace with your Airflow API endpoint for DAGs and DAG Runs
+    airflow_api_endpoint = "http://your-airflow-api-endpoint/api/v1"
+    
+    try:
+        # Make GET request to Airflow API to get DAG information
+        dag_info_response = requests.get(f"{airflow_api_endpoint}/dags/{manual_dag_id}", auth=HTTPBasicAuth(airflow_username, airflow_password))
+        dag_info = dag_info_response.json()
+
+        # Make GET request to Airflow API to get DAG runs
+        dag_runs_response = requests.get(f"{airflow_api_endpoint}/dags/{manual_dag_id}/dagRuns", auth=HTTPBasicAuth(airflow_username, airflow_password))
+        dag_runs = dag_runs_response.json()
+
+        # Print the retrieved data
+        print(f"Data for DAG '{manual_dag_id}':")
+        print("DAG Information:")
+        print(dag_info)
+        print("\nDAG Runs:")
+        print(dag_runs)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Specify the DAG ID manually
+dag_id_to_retrieve = "your_manual_dag_id"
+
+# Call the function to get Airflow data for the specified DAG
+get_dag_data(dag_id_to_retrieve)
