@@ -60,3 +60,45 @@ with pysftp.Connection(host=sftp_host, username=sftp_username, password=sftp_pas
         print(f"Filename: {attr.filename}, Size: {attr.st_size}, Last modified: {attr.st_mtime}")
 
 # Checking for new or modified files would require keeping a record of previous states to compare against.
+
+
+
+import paramiko
+
+# Define the connection parameters
+sftp_host = 'your.sftp.host'  # Replace with your SFTP host
+sftp_port = 22  # Replace with your SFTP port if different
+sftp_username = 'your_username'  # Replace with your SFTP username
+sftp_password = 'your_password'  # Replace with your SFTP password
+
+# Initialize the SSH client
+client = paramiko.SSHClient()
+
+# For security, we use the system host keys. You can also use AutoAddPolicy to accept unknown host keys (not recommended).
+client.load_system_host_keys()
+client.set_missing_host_key_policy(paramiko.WarningPolicy())
+
+try:
+    # Connect to the SFTP server
+    client.connect(sftp_host, port=sftp_port, username=sftp_username, password=sftp_password)
+    
+    # Open an SFTP session on the SSH server
+    sftp = client.open_sftp()
+    
+    # List the files in the current directory on the SFTP server
+    print("Listing files in the home directory:")
+    for filename in sftp.listdir('.'):
+        print(filename)
+    
+    # Close the SFTP session
+    sftp.close()
+
+except paramiko.AuthenticationException:
+    print("Authentication failed, please verify your credentials")
+except paramiko.SSHException as e:
+    print(f"SSH error: {e}")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+finally:
+    # Close the client connection
+    client.close()
