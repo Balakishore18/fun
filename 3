@@ -247,3 +247,50 @@ destination_container_id = "your_destination_container_id"
 
 # Call the function to get DAG data from the source container and store it in the destination container
 get_dag_data_and_store(cosmos_db_endpoint, cosmos_db_key, cosmos_db_database_id, source_container_id, destination_container_id)
+
+
+import streamlit as st
+import networkx as nx
+import matplotlib.pyplot as plt
+from airflow.models import DagBag
+
+def get_dag_graph(dag_id):
+    dag_bag = DagBag()
+    
+    if dag_id not in dag_bag.dags:
+        return None
+    
+    dag = dag_bag.get_dag(dag_id)
+    
+    # Create a directed graph from the DAG
+    graph = nx.DiGraph()
+
+    for task_id, task in dag.task_dict.items():
+        downstream_task_ids = [downstream_task.task_id for downstream_task in task.downstream_list]
+        graph.add_node(task_id, label=task.task_id)
+        graph.add_edges_from((task_id, downstream_task_id) for downstream_task_id in downstream_task_ids)
+
+    return graph
+
+def visualize_dag_ui():
+    st.title("Airflow DAG Visualization in Streamlit")
+
+    # Specify the DAG ID
+    dag_id_to_visualize = st.text_input("Enter DAG ID:", "your_dag_id")
+
+    # Retrieve the DAG graph
+    dag_graph = get_dag_graph(dag_id_to_visualize)
+
+    if dag_graph:
+        # Plot DAG using Matplotlib
+        plt.figure(figsize=(10, 8))
+        pos = nx.spring_layout(dag_graph)
+        nx.draw(dag_graph, pos, with_labels=True, font_weight='bold', node_size=700, node_color="skyblue", arrowsize=20)
+        st.pyplot()
+
+    else:
+        st.warning("DAG not found. Please enter a valid DAG ID.")
+
+# Run the Streamlit app
+if __name__ == "__main__":
+    visualize_dag_ui()
