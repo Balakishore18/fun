@@ -60,3 +60,23 @@ if items_to_process:
     # Assume the timestamp is a property of each item
     latest_timestamp = max(item['timestamp'] for item in items_to_process)
     update_last_processed_timestamp(latest_timestamp)
+
+
+
+def update_last_processed_timestamp(update_timestamp, database, timestamp_container):
+    # selecting latest timestamp from container information
+    timestamps_container_client = database.get_container_client(timestamp_container)
+    
+    # Query to fetch all documents (assumes there's only one, or you'll update all)
+    query = "SELECT * FROM c"
+    items = list(timestamps_container_client.query_items(query=query, enable_cross_partition_query=True))
+    
+    if items:
+        for item in items:
+            # Update the existing document
+            item['last_processed_timestamp'] = update_timestamp
+            timestamps_container_client.replace_item(item=item['id'], body=item)
+    else:
+        # Create a new document if it doesn't exist
+        new_item = {'id': 'unique_document_id', 'last_processed_timestamp': update_timestamp}
+        timestamps_container_client.create_item(body=new_item)
