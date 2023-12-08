@@ -1,354 +1,62 @@
-{
-  "name": "MyJobName",
-  "new_cluster": {
-    "spark_version": "7.3.x-scala2.12",
-    "node_type_id": "Standard_DS3_v2",
-    "num_workers": 2
-  },
-  "notebook_task": {
-    "notebook_path": "/Workspace/path/to/your/notebook"
-  }
-}
-
-
-import subprocess
-import json
-
-def create_and_run_databricks_job(config_file):
-    # Create a job using the JSON file
-    create_job_command = [
-        "databricks", "jobs", "create",
-        "--json-file", config_file
-    ]
-    
-    response = subprocess.run(create_job_command, capture_output=True, text=True)
-    if response.returncode != 0:
-        raise Exception(f"Error creating job: {response.stderr}")
-    
-    # Parse job id from the response
-    response_json = json.loads(response.stdout)
-    job_id = response_json["job_id"]
-    
-    # Run the job
-    run_job_command = [
-        "databricks", "jobs", "run-now",
-        "--job-id", str(job_id)
-    ]
-    
-    response = subprocess.run(run_job_command, capture_output=True, text=True)
-    if response.returncode != 0:
-        raise Exception(f"Error running job: {response.stderr}")
-    
-    print(response.stdout)
-
-# Example usage
-if __name__ == "__main__":
-    config_file = "config.json"
-    create_and_run_databricks_job(config_file)
-
-
-import json
-from azure.storage.blob import BlobServiceClient
-from azure.cosmos import CosmosClient, PartitionKey
-
-# Step 1: Fetch JSON from Azure Blob Storage
-
-def fetch_blob_data(blob_account_url, container_name, blob_name, blob_sas_token):
-    blob_service_client = BlobServiceClient(account_url=blob_account_url, credential=blob_sas_token)
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-    blob_data = blob_client.download_blob().readall()
-    return json.loads(blob_data)
-
-# Step 2: Write the JSON data to Cosmos DB
-
-def write_data_to_cosmos(cosmos_url, cosmos_key, database_name, container_name, data):
-    cosmos_client = CosmosClient(cosmos_url, cosmos_key)
-    database = cosmos_client.get_database_client(database_name)
-    
-    # Assuming the container is already created with a partition key as needed
-    container = database.get_container_client(container_name)
-    
-    container.upsert_item(data)
-
-# Usage:
-
-blob_account_url = "https://your_blob_account_name.blob.core.windows.net/"
-container_name = "your_container_name"
-blob_name = "your_blob_name.json"
-blob_sas_token = "your_blob_sas_token"
-
-data = fetch_blob_data(blob_account_url, container_name, blob_name, blob_sas_token)
-
-cosmos_url = "https://your_cosmos_account_name.documents.azure.com:443/"
-cosmos_key = "your_cosmos_primary_or_secondary_key"
-database_name = "your_database_name"
-container_name = "your_container_name"
-
-write_data_to_cosmos(cosmos_url, cosmos_key, database_name, container_name, data)
-
-
-from azure.storage.blob import BlobServiceClient
-from azure.identity import DefaultAzureCredential
-
-def fetch_blob_data_with_managed_identity(account_url, container_name, blob_name):
-    credential = DefaultAzureCredential()
-    blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-    blob_data = blob_client.download_blob().readall()
-    return json.loads(blob_data)
-
-# Example usage:
-account_url = 'https://your_account_name.blob.core.windows.net'
-container_name = 'your_container_name'
-blob_name = 'your_blob_name.json'
-data = fetch_blob_data_with_managed_identity(account_url, container_name, blob_name)
-
-pip install azure-storage-blob azure-identity
-
-
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
-import json
-
-#connection_string = "https://balaproject.blob.core.windows.net"
-connection_string = "DefaultEndpointsProtocol=https;AccountName=balaproject;AccountKey=kO5r0tP4/XHfFaeiP/P2jwvIqoeQu5HhvlwF6N6xJqEwBie5NyUEZ5ozY921I+TFz9p8QuTSMMnm+ASthbLlfQ==;EndpointSuffix=core.windows.net"
-
-container_name = "bala"
-
-blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-container_client = blob_service_client.get_container_client(container_name)
-
-for blob in container_client.list_blobs():
-    if blob.name.endswith('.json'):
-        blob_client = container_client.get_blob_client(blob.name)
-        blob_data = blob_client.download_blob()
-        json_data = json.loads(blob_data.readall())
-        print(json_data)
-
-
-{
-  "config_id": "configForReadBlobJob",
-  "name": "readBlobJob",
-  "existing_cluster_id": "YOUR_EXISTING_CLUSTER_ID",
-  "notebook_task": {
-    "notebook_path": "/Users/bhongarastacestreet.com/readingBlobJob"
-  }
-}
-
-
-
-import sys
-import subprocess
-import json
-from azure.cosmos import CosmosClient
-
-def get_config_from_cosmosdb():
-    # Initialize Cosmos DB client
-    url = "YOUR_COSMOS_DB_URL"
-    key = "YOUR_COSMOS_DB_KEY"
-    client = CosmosClient(url, credential=key)
-
-    # Select database and container
-    database = client.get_database_client("YOUR_DATABASE_NAME")
-    container = database.get_container_client("YOUR_CONTAINER_NAME")
-
-    # Query configuration data
-    config_query = "SELECT * FROM c WHERE c.id = 'YOUR_CONFIG_ID'"
-    items = list(container.query_items(query=config_query, enable_cross_partition_query=True))
-
-    return items[0] if items else None
-
-def create_and_run_databricks_job(config_data):
-    # Create the Databricks job using the CLI with the provided config_file (JSON file)
-    create_job_command = ["databricks", "jobs", "create", "--json-file", config_data['config_file_path']]
-    response = subprocess.run(create_job_command, capture_output=True, text=True)
-    
-    if response.returncode != 0:
-        raise Exception(f"Error creating job: {response.stderr}")
-    
-    # Parse the job ID from the response
-    response_json = json.loads(response.stdout)
-    job_id = response_json["job_id"]
-    
-    # Run the job
-    run_job_command = ["databricks", "jobs", "run-now", "--job-id", str(job_id)]
-    response = subprocess.run(run_job_command, capture_output=True, text=True)
-    
-    if response.returncode != 0:
-        raise Exception(f"Error running job: {response.stderr}")
-
-    print(response.stdout)
-
-if __name__ == "__main__":
-    config_data = get_config_from_cosmosdb()
-    if not config_data:
-        print("Failed to fetch config data from Cosmos DB.")
-        sys.exit(1)
-    
-    create_and_run_databricks_job(config_data)
-
-
-
-import subprocess
-import sys
-import json
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
+import os
 
-def get_config_from_cosmosdb():
-    url = "https://your-endpoint.documents.azure.com:443/"
-    key = "your-key"
+# Initialize Cosmos Client (use your actual endpoint and key)
+url = os.environ['COSMOS_DB_ENDPOINT']
+key = os.environ['COSMOS_DB_KEY']
+client = CosmosClient(url, credential=key)
+
+# Define your database and container names
+metadata_db_name = 'your_metadata_database'
+timestamps_container_name = 'your_timestamps_container'
+jobs_db_name = 'your_jobs_database'
+jobs_container_name = 'your_jobs_container'
+
+# Get the container clients
+timestamps_container_client = client.get_database_client(metadata_db_name).get_container_client(timestamps_container_name)
+jobs_container_client = client.get_database_client(jobs_db_name).get_container_client(jobs_container_name)
+
+# Function to get the last processed timestamp
+def get_last_processed_timestamp():
+    query = "SELECT TOP 1 c.last_processed_timestamp FROM c ORDER BY c.last_processed_timestamp DESC"
+    items = list(timestamps_container_client.query_items(query=query, enable_cross_partition_query=True))
+    return items[0]['last_processed_timestamp'] if items else 0
+
+# Function to update the last processed timestamp
+def update_last_processed_timestamp(timestamp):
+    # For simplicity, assume there's only one timestamp document
+    # If your logic requires multiple, you'll need to modify this code
+    items = list(timestamps_container_client.query_items(
+        query="SELECT * FROM c",
+        enable_cross_partition_query=True))
     
-    # Create Cosmos client
-    client = CosmosClient(url, credential=key)
-    
-    # Select database and container
-    database = client.get_database_client("COSMOS_DB_NAME")
-    container = database.get_container_client("CONFIG_CONTAINER")
-    
-    # Query configuration data
-    config_query = "SELECT * FROM c WHERE c.configId = 'config'"
-    items = list(container.query_items(query=config_query, enable_cross_partition_query=True))
-    
-    return items[0] if items else None
+    if items:
+        # Update the existing document
+        item = items[0]
+        item['last_processed_timestamp'] = timestamp
+        timestamps_container_client.replace_item(item=item, body=item)
+    else:
+        # Create a new document if it doesn't exist
+        new_item = {'id': 'timestamp_tracker', 'last_processed_timestamp': timestamp}
+        timestamps_container_client.create_item(body=new_item)
 
-def create_and_run_databricks_job(config_data):
-    # Convert the config_data dictionary to a JSON string
-    config_data_json = json.dumps(config_data)
-    
-    create_job_command = ["databricks", "jobs", "create", "--json", config_data_json]
-    response = subprocess.run(create_job_command, capture_output=True, text=True)
-    
-    if response.returncode != 0:
-        raise Exception(f"Error creating job: {response.stderr}")
-    
-    # Parse the job ID from the response
-    response_json = json.loads(response.stdout)
-    job_id = response_json["job_id"]
-    
-    run_job_command = ["databricks", "jobs", "run-now", "--job-id", str(job_id)]
-    response = subprocess.run(run_job_command, capture_output=True, text=True)
-    
-    if response.returncode != 0:
-        raise Exception(f"Error running job: {response.stderr}")
-    
-    print(response.stdout)
+# Function to create jobs for the items
+def create_jobs_for_items(items):
+    # Placeholder for your job creation logic
+    pass
 
-if __name__ == "__main__":
-    config_data = get_config_from_cosmosdb()
-    
-    if not config_data:
-        print("Failed to fetch config data from Cosmos DB.")
-        sys.exit(1)
-    
-    create_and_run_databricks_job(config_data)
+# Main logic for incremental load
+last_timestamp = get_last_processed_timestamp()
 
+# Get all items from the jobs container that have a timestamp greater than last_timestamp
+query = f"SELECT * FROM c WHERE c.timestamp > {last_timestamp}"
+items_to_process = list(jobs_container_client.query_items(query=query, enable_cross_partition_query=True))
 
+# Process each item to create a job
+create_jobs_for_items(items_to_process)
 
-
-{
-  "config_id": "configForReadBlobJob",
-  "name": "readBlobJob",
-  "existing_cluster_id": "YOUR_EXISTING_CLUSTER_ID",
-  "notebook_task": {
-    "notebook_path": "/Users/bhongarastacestreet.com/readingBlobJob"
-  },
-  "product_edition": "YOUR_PRODUCT_EDITION",
-  "pipeline_mode": "YOUR_PIPELINE_MODE",
-  "cluster_policy": "YOUR_CLUSTER_POLICY",
-  "source_code_libraries": [
-    "YOUR_LIBRARY1",
-    "YOUR_LIBRARY2"
-  ],
-  "storage_location": "YOUR_STORAGE_LOCATION",
-  "target_schema": "YOUR_TARGET_SCHEMA",
-  "compute_settings": {
-    "cpu": "YOUR_CPU_SETTING",
-    "memory": "YOUR_MEMORY_SETTING"
-  },
-  "instance_types": [
-    "YOUR_INSTANCE_TYPE1",
-    "YOUR_INSTANCE_TYPE2"
-  ],
-  "autoscaling": {
-    "min_workers": "YOUR_MIN_WORKERS",
-    "max_workers": "YOUR_MAX_WORKERS"
-  },
-  "delay_compute_shutdown": "YOUR_DELAY_TIME",
-  "single_node_cluster": true_or_false,
-  "cluster_tags": [
-    "YOUR_TAG1",
-    "YOUR_TAG2"
-  ],
-  "cloud_storage_config": {
-    "type": "YOUR_STORAGE_TYPE",
-    "credentials": "YOUR_STORAGE_CREDENTIALS"
-  },
-  "pipeline_parameters": {
-    "param1": "YOUR_VALUE1",
-    "param2": "YOUR_VALUE2"
-  },
-  "trigger_interval": "YOUR_TRIGGER_INTERVAL",
-  "allow_non_admin_driver_logs": true_or_false,
-  "email_notifications": [
-    "YOUR_EMAIL1",
-    "YOUR_EMAIL2"
-  ]
-}
-
-
-{
-  "config_id": "configForReadBlobJob",
-  "name": "readJarJob",
-  "existing_cluster_id": "YOUR_EXISTING_CLUSTER_ID",
-  "spark_jar_task": {
-    "main_class_name": "YOUR_MAIN_CLASS",
-    "jar_uri": "dbfs:/path/to/your/jarfile.jar",
-    "parameters": ["param1", "param2"]  // optional: any parameters your JAR might accept
-  },
-  ...  // other configuration parameters remain the same
-}
-
-
-
-
-{
-    "name": "pipeline1",
-    "existing_cluster_id": "0317-130724-eumsn4",
-    "appCode": "EFF",
-    "subAppCode": "D",
-    "pipelineName": "transactions",
-    "spark_jar_uri": "com.staticsr.ssds.calengline.exec.wfHPipelineExecutor",
-    "main_class_name": "com.staticsr.ssds.calengline.exec.wfHPipelineExecutor",
-    "jar_uri": "pxo.wfy/uber.sparkstreaming.util.0.5.jar",
-    "bronze": [
-        {
-            "id": "bronze1",
-            "appCode": "EFF",
-            "subAppCode": "D",
-            "pipelineName": "transactions",
-            "layer": "bronze",
-            "filename": "cust_info_bronze.json",
-            "filePath": "abfs://databricksneepbleffdev02.core.windows.net/EFF/D/transactions/taskflows/bronze/cust_info_bronze.json"
-        }
-    ],
-    "silver": [
-        {
-            "id": "silver1",
-            "appCode": "EFF",
-            "subAppCode": "D",
-            "pipelineName": "transactions",
-            "layer": "silver",
-            "filename": "cust_trans_silver.json",
-            "filePath": "abfs://databricksneepbleffdev02.core.windows.net/EFF/D/transactions/taskflows/silver/cust_trans_silver.json"
-        },
-        {
-            "id": "silver2",
-            "appCode": "EFF",
-            "subAppCode": "D",
-            "pipelineName": "transactions",
-            "layer": "silver",
-            "filename": "dedupeTables.sql",
-            "filePath": "abfs://databricksneepbleffdev02.core.windows.net/EFF/D/transactions/sql/DF_dedupeTables.sql"
-        }
-    ]
-}
-
+# After processing, update the last processed timestamp
+if items_to_process:
+    # Assume the timestamp is a property of each item
+    latest_timestamp = max(item['timestamp'] for item in items_to_process)
+    update_last_processed_timestamp(latest_timestamp)
