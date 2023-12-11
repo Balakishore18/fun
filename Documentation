@@ -47,3 +47,6 @@ This automated procedure ensures the conversion of raw data into valuable insigh
 
 
 The Python DAG Creator is a straightforward automation tool used with Apache Airflow. It uses configurations stored in a specific container to determine how data jobs should be managed. These configurations include important details like the Databricks job ID and its status. The tool takes this information to build DAGs, which are instructions that tell Airflow how to handle data tasks in Databricks. This involves setting up databases for data storage and applying SQL commands for data processing. The tool ensures that these tasks are prepared and executed accurately, according to the provided settings.
+
+
+The automated system is designed to initiate Databricks jobs as soon as new data arrives in Blob Storage. It employs an Azure Event Grid Topic to keep an eye on new blob creations within designated storage folders. Each time a blob is added, the Event Grid Topic detects this and notifies an Azure Function. This Azure Function is specifically configured to activate Databricks jobs using the data from the event, such as file details. The setup ensures a quick and automatic transition from data upload to data processing, minimizing the need for manual job initiation.
