@@ -50,3 +50,6 @@ The Python DAG Creator is a straightforward automation tool used with Apache Air
 
 
 The automated system is designed to initiate Databricks jobs as soon as new data arrives in Blob Storage. It employs an Azure Event Grid Topic to keep an eye on new blob creations within designated storage folders. Each time a blob is added, the Event Grid Topic detects this and notifies an Azure Function. This Azure Function is specifically configured to activate Databricks jobs using the data from the event, such as file details. The setup ensures a quick and automatic transition from data upload to data processing, minimizing the need for manual job initiation.
+
+
+The system automatically handles the configuration of Databricks jobs when new data is uploaded to Blob Storage. An Azure Event Grid Topic monitors for the creation of new blobs in specific folders. Upon detecting a new blob, it triggers an Azure Function. This function is designed to retrieve the Databricks job configurations based on the blob event details. With this approach, as soon as data is uploaded, the corresponding Databricks job is configured without the need for manual setup, streamlining the data processing workflow.
