@@ -53,3 +53,6 @@ The automated system is designed to initiate Databricks jobs as soon as new data
 
 
 The system automatically handles the configuration of Databricks jobs when new data is uploaded to Blob Storage. An Azure Event Grid Topic monitors for the creation of new blobs in specific folders. Upon detecting a new blob, it triggers an Azure Function. This function is designed to retrieve the Databricks job configurations based on the blob event details. With this approach, as soon as data is uploaded, the corresponding Databricks job is configured without the need for manual setup, streamlining the data processing workflow.
+
+An Azure Event Grid Topic is set up to monitor the creation of new files in specific Blob Storage folders. When it detects a new file, it triggers an Azure Function. This function is tasked with retrieving the Databricks job configurations based on the details of the blob event. With this system in place, as soon as data is uploaded, the corresponding Databricks job is automatically configured, eliminating the need for manual setup.
+
