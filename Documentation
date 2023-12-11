@@ -1,0 +1,40 @@
+Introduction
+This document serves as a guide for the Self-Service Data Fabric Platform, designed to assist users in setting up and managing their data pipelines, from raw data ingestion to the creation of refined datasets for analytics.
+
+Platform Overview
+The Self-Service Data Fabric Platform provides a user-friendly Streamlit interface for users to configure data pipelines, define workflows, and manage data transformations across various layers.
+
+User Interface Guide
+
+App Code: The application's unique identifier.
+Sub App Code: Identifier for subdivisions within the application.
+
+Pipeline Configuration
+Number of Pipelines: Total pipelines to be set up for the project.
+Pipeline Name: Unique name for each pipeline.
+
+Workflow Configuration
+Number of Workflows: Total workflows within a pipeline.
+Workflow Name: Designation for each workflow.
+
+Ingestion Type: Method of data ingestion.
+Data Load Format: Format in which data will be loaded (e.g., CSV, JSON).
+Data Load Frequency: How often data is loaded into the system.
+Data Storage and Management
+
+After users input their pipeline configurations:
+Data Storage: JSON schemas, SQL logic scripts, and raw files are saved in blob storage.
+
+Metadata Table: Manages the overarching details of each pipeline.
+A metadata table is created per pipeline, containing:
+AppCode: Application code.
+SubAppCode: Sub-application code, if applicable.
+UniqueID: A unique identifier for each entry.
+Workflow Details: Details regarding each workflow.
+
+Configuration Table: Manages workflow-specific details and file references, linked by UniqueID to the metadata table which interm will be used for databricks job creation.
+This table includes all details from the UI input, along with references to the associated SQL and JSON files for each layer. It is structured as follows:
+UniqueID: Corresponds to a specific workflow and links directly to the metadata table entry for easy reference.
+Workflow Details: Configuration specifics for each workflow within the pipeline.
+File References: Links to the stored SQL and JSON files in blob storage that pertain to each specific layer.
+
