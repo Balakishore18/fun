@@ -38,3 +38,8 @@ UniqueID: Corresponds to a specific workflow and links directly to the metadata 
 Workflow Details: Configuration specifics for each workflow within the pipeline.
 File References: Links to the stored SQL and JSON files in blob storage that pertain to each specific layer.
 
+
+
+Summary: The Databricks Job Creation Utility within the Self-Service Data Fabric Platform is an essential automation tool that assists in the setup and execution of data processing jobs on Databricks. Its primary function is to monitor a timestamp table for updates in the metadata table, which contains details of user-entered pipelines. When it finds new entries, marked by timestamps later than the last recorded one, it extracts each entry's unique ID from the metadata table. Following this, it retrieves the related pipeline configurations from the config container, which include SQL scripts and schema details needed to transform raw data into a structured format. The utility then launches Databricks jobs to process the raw data, execute the user-defined SQL transformations, and refresh the Delta tables as designated by the user. Once job creation and data transformation are successfully completed, the utility updates the timestamp table with the newest timestamp, thereby keeping the system up-to-date with the most recent data processing activities.
+
+This automated procedure ensures the conversion of raw data into valuable insights is done according to user-specified transformations and target schemas, thus improving the data pipeline’s efficiency and dependability.
