@@ -1,0 +1,61 @@
+import azure.functions as func
+import requests
+import os
+from azure.cosmosdb.table.tableservice import TableService
+from azure.cosmosdb.table.models import Entity
+
+# Setup your Azure Table Storage connection
+table_service = TableService(account_name='your_account_name', account_key='your_account_key')
+table_name = 'your_table_name'
+
+def main(mytimer: func.TimerRequest):
+    # Retrieve the last processed timestamp from Azure Table Storage
+    last_processed_timestamp = get_last_processed_timestamp()
+
+    # Query the Delta table's change data feed for new changes since the last timestamp
+    new_changes = query_delta_change_feed(last_processed_timestamp)
+
+    # If there are new changes, trigger the Databricks job
+    if new_changes:
+        trigger_databricks_job()
+        # Update the last processed timestamp in Azure Table Storage
+        update_last_processed_timestamp(new_changes['latest_timestamp'])
+
+def get_last_processed_timestamp():
+    # Retrieve the entity with the last processed timestamp
+    entity = table_service.get_entity(table_name, 'PartitionKey', 'RowKey')
+    return entity['LastProcessedTimestamp']
+
+def query_delta_change_feed(last_processed_timestamp):
+    # Assuming you have a way to query your Delta table's change feed, which may involve
+    # using Databricks' REST API to execute a job that does this and returns the results.
+    # For now, we'll just return a mock dictionary with changes.
+    # You would replace this with your actual logic to query the change feed.
+    return {
+        'latest_timestamp': '2021-01-01T00:00:00Z',
+        'changes': [
+            # ... list of changes
+        ]
+    }
+
+def trigger_databricks_job():
+    # Trigger a Databricks job via the Databricks REST API
+    # Replace with your actual Databricks domain and token
+    databricks_domain = 'your-databricks-domain'
+    databricks_token = 'your-databricks-token'
+    job_id = 'your-job-id'
+
+    response = requests.post(
+        f'https://{databricks_domain}/api/2.0/jobs/run-now',
+        headers={'Authorization': f'Bearer {databricks_token}'},
+        json={
+            'job_id': job_id,
+            # Add any other parameters your job requires
+        }
+    )
+    response.raise_for_status()  # This will raise an exception for non-2xx responses
+
+def update_last_processed_timestamp(new_timestamp):
+    # Update the entity in Azure Table Storage with the new timestamp
+    entity = {'PartitionKey': 'YourPartition', 'RowKey': 'YourRowKey', 'LastProcessedTimestamp': new_timestamp}
+    table_service.update_entity(table_name, entity)
