@@ -56,3 +56,34 @@ The system automatically handles the configuration of Databricks jobs when new d
 
 An Azure Event Grid Topic is set up to monitor the creation of new files in specific Blob Storage folders. When it detects a new file, it triggers an Azure Function. This function is tasked with retrieving the Databricks job configurations based on the details of the blob event. With this system in place, as soon as data is uploaded, the corresponding Databricks job is automatically configured, eliminating the need for manual setup.
 
+
+
+
+I am thinking of two ways to this task
+
+
+1) If any new data gets inserted in the silver table then I will trigger the gold job
+
+Logic: 
+
+First I will connect to the Databricks delta table capturing the counts based on previous counts if it's less than the current count then I will run the gold job. then I will update the count to the cosmos db table.
+To do this I need to change my previous code by adding some function
+
+
+2) Event-driven approach
+
+Enable Change Data Feed:
+
+In your Delta table on Databricks, enable the change data feed feature by setting the table property delta.enableChangeDataFeed to true. You can do this during table creation or by altering the table after creation.
+Use Azure Functions:
+
+Set up an Azure Function with a timer trigger that runs at regular intervals, which is suitable for your use case.
+Within this function, write code to query the change feed of your Silver Delta table. Delta Lake on Databricks supports reading the change data feed using Delta Table APIs.
+Triggering Logic:
+
+The Azure Function would then compare the timestamps of the changes found in the feed with the last processed timestamp, which you would retrieve from a persistent store such as Azure Table Storage or Azure Cosmos DB.
+If there are new changes (i.e., if the latest change timestamp is greater than the last processed timestamp), the function would use the Databricks API to trigger a job. This job would typically process the new changes and update the Gold Delta table accordingly.
+
+
+
+
