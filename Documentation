@@ -85,5 +85,63 @@ The Azure Function would then compare the timestamps of the changes found in the
 If there are new changes (i.e., if the latest change timestamp is greater than the last processed timestamp), the function would use the Databricks API to trigger a job. This job would typically process the new changes and update the Gold Delta table accordingly.
 
 
+Subtask 1.1: Define Configuration Schema
+Determine the structure of the configuration data stored in Cosmos DB (e.g., fields for schedule, Delta table paths, Databricks job details).
+Subtask 1.2: Cosmos DB Setup
+Create and configure the Cosmos DB instance and container to store the configuration data.
+Subtask 1.3: Cosmos DB Connectivity
+Implement methods to connect to Cosmos DB and retrieve configuration data using the Azure Cosmos DB SDK for Python.
+2. Scheduler Setup
+Subtask 2.1: Determine Scheduling Mechanism
+Choose a scheduling method (e.g., Azure Functions Timer Trigger, cron job).
+Subtask 2.2: Implement Scheduler
+Write the code or set up the configuration for the chosen scheduling method.
+3. Connect to Delta Lake Table
+Subtask 3.1: Access Setup
+Set up access to the Delta Lake table, including authentication and necessary permissions.
+Subtask 3.2: Delta Table Connection
+Write code to establish a connection to the Delta Lake table using appropriate APIs.
+4. Data Change Detection
+Subtask 4.1: Enable Change Data Feed
+Ensure the Delta Lake table has Change Data Feed enabled and understand how to read it.
+Subtask 4.2: Read Change Data Feed
+Implement logic to read the Change Data Feed and detect new changes since the last check.
+5. Schema Change Detection
+Subtask 5.1: Schema Retrieval
+Implement logic to retrieve the current schema of the Delta Lake table.
+Subtask 5.2: Compare Schemas
+Write code to compare the retrieved schema with the stored schema to detect changes.
+6. Trigger Databricks Job
+Subtask 6.1: Databricks API Integration
+Integrate with the Databricks API to programmatically trigger jobs.
+Subtask 6.2: Job Trigger Logic
+Develop the logic that triggers the Databricks job when data or schema changes are detected.
+7. State Management
+Subtask 7.1: Store Last Checked State in Cosmos DB
+Decide on the structure for storing the last checked timestamp and schema in Cosmos DB.
+Subtask 7.2: Update State After Check
+Implement the update mechanism for the last checked state after each detection cycle.
+8. Testing and Validation
+Subtask 8.1: Unit Testing
+Write unit tests for each component (Cosmos DB retrieval, Delta Lake connection, change detection, etc.).
+Subtask 8.2: Integration Testing
+Test the entire workflow from configuration retrieval to job triggering to ensure all parts work together.
+9. Deployment
+Subtask 9.1: Deployment Script
+Create scripts or define steps for deploying the solution to the production environment.
+Subtask 9.2: Monitoring and Alerts
+Set up monitoring and alerts for the solution to notify of successes, failures, or performance issues.
+10. Documentation
+Subtask 10.1: Code Documentation
+Document the codebase, explaining how each part of the system works, including interactions with Cosmos DB.
+Subtask 10.2: User Documentation
+Write user-facing documentation on how to set up configurations in Cosmos DB, how to deploy, and how to monitor the system.
+11. Maintenance and Operations
+Subtask 11.1: Define Maintenance Procedures
+Outline procedures for regular maintenance, updates, and checks of the system, including the Cosmos DB configurations.
+Subtask 11.2: Operational Playbook
+Develop an operational playbook for the system, detailing regular operations, incident response, and escalation paths, with a focus on the Cosmos DB component.
+Each subtask would be fleshed out with the specifics of the Cosmos DB SDK and how it's used to interact with the configurations needed for your Delta Lake and Databricks setup. Remember to follow Azure's best practices for security and manage your Cosmos DB access keys and credentials securely, preferably using Azure Key Vault or managed identities where possible.
+
 
 
