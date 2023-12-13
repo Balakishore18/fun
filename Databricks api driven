@@ -132,3 +132,145 @@ You might have it call your main application logic, perhaps through an HTTP requ
 This setup allows you to schedule and run tasks without needing to manage the underlying infrastructure. The Timer Trigger function in Azure Functions acts independently but can be a part of your broader application workflow.
 
 Let me know if you need additional details on any of these steps or further assistance!
+
+
+
+
+# Import necessary libraries
+from azure.cosmos import CosmosClient, exceptions
+from pyspark.sql import SparkSession
+import requests
+import json
+import os
+import logging
+from datetime import datetime
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+
+# ----- Environment Variable Validation -----
+def validate_env_vars(*vars):
+    for var in vars:
+        if not os.getenv(var):
+            logging.error(f"Environment variable {var} is not set.")
+            raise EnvironmentError(f"Environment variable {var} is not set.")
+
+# ----- Cosmos DB Connection and Configuration Retrieval -----
+def get_cosmosdb_client():
+    validate_env_vars('COSMOS_DB_URI', 'COSMOS_DB_KEY')
+    url = os.getenv('COSMOS_DB_URI')
+    key = os.getenv('COSMOS_DB_KEY')
+    return CosmosClient(url, credential=key)
+
+def get_cosmosdb_config(client, database_name, container_name):
+    try:
+        database = client.get_database_client(database_name)
+        container = database.get_container_client(container_name)
+
+        query = "SELECT * FROM c WHERE c.id = 'config_id'"
+        items = list(container.query_items(query=query, enable_cross_partition_query=True))
+
+        return items[0] if items else None
+    except exceptions.CosmosException as e:
+        logging.error(f"Error accessing Cosmos DB: {e}")
+        return None
+
+# ----- State Management in Cosmos DB -----
+def get_previous_state(container):
+    state_document_id = 'stateDocumentId'
+    try:
+        return container.read_item(item=state_document_id, partition_key=state_document_id)
+    except exceptions.CosmosResourceNotFoundError:
+        return None
+
+def update_state_in_cosmosdb(container, new_count, new_schema, new_timestamp):
+    state_document_id = 'stateDocumentId'
+    try:
+        state_document = container.read_item(item=state_document_id, partition_key=state_document_id)
+    except exceptions.CosmosResourceNotFoundError:
+        state_document = {"id": state_document_id}
+    
+    state_document['lastCount'] = new_count
+    state_document['lastSchema'] = new_schema
+    state_document['lastCheckedTimestamp'] = new_timestamp
+    container.upsert_item(state_document)
+
+# ----- Delta Lake Table Connection -----
+def connect_to_delta_lake(delta_table_path):
+    spark = SparkSession.builder.appName("DeltaLakeConnection").getOrCreate()
+    return spark.read.format("delta").load(delta_table_path)
+
+# ----- Change Data Feed Reading -----
+def read_change_data_feed(delta_table_path):
+    spark = SparkSession.builder.appName("ReadChangeData").getOrCreate()
+    return spark.read.format("delta").option("readChangeData", "true").table(delta_table_path)
+
+# ----- Schema Comparison -----
+def compare_schemas(current_schema, stored_schema):
+    return str(current_schema) != str(stored_schema)
+
+# ----- Databricks Job Triggering -----
+def trigger_databricks_job(databricks_instance, job_id):
+    validate_env_vars('DATABRICKS_TOKEN')
+    databricks_token = os.getenv('DATABRICKS_TOKEN')
+
+    try:
+        url = f"{databricks_instance}/api/2.0/jobs/run-now"
+        headers = {
+            'Authorization': f'Bearer {databricks_token}',
+            'Content-Type': 'application/json'
+        }
+        payload = {"job_id": job_id}
+
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        if response.status_code == 200:
+            logging.info("Databricks job triggered successfully.")
+            return response.json()
+        else:
+            logging.error(f"Failed to trigger Databricks job: {response.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error triggering Databricks job: {e}")
+        return None
+
+# ----- Main Application Flow -----
+def main():
+    # Initialize Cosmos DB client
+    cosmos_client = get_cosmosdb_client()
+    validate_env_vars('COSMOS_DB_DATABASE_NAME', 'COSMOS_DB_CONFIG_CONTAINER_NAME', 'COSMOS_DB_STATE_CONTAINER_NAME')
+    database_name = os.getenv('COSMOS_DB_DATABASE_NAME')
+    config_container_name = os.getenv('COSMOS_DB_CONFIG_CONTAINER_NAME')
+    state_container_name = os.getenv('COSMOS_DB_STATE_CONTAINER_NAME')
+
+    # Retrieve configuration and state containers from Cosmos DB
+    config_container = cosmos_client.get_database_client(database_name).get_container_client(config_container_name)
+    config = get_cosmosdb_config(cosmos_client, database_name, config_container_name)
+    
+    state_container = cosmos_client.get_database_client(database_name).get_container_client(state_container_name)
+    previous_state = get_previous_state(state_container)
+
+    # Connect to Delta Lake Table
+    delta_table_path = config['deltaLakeConfig']['tablePath']
+    delta_df = connect_to_delta_lake(delta_table_path)
+
+    # Read Change Data Feed
+    change_data = read_change_data_feed(delta_table_path)
+
+    # Check for Schema and Data Changes
+    current_count = delta_df.count()
+    current_schema = str(delta_df.schema)
+    stored_schema = config['deltaLakeConfig']['schema']
+    schema_changed = compare_schemas(current_schema, stored_schema)
+    data_changed = current_count != (previous_state['lastCount'] if previous_state else 0)
+
+    # Trigger Databricks Job and Update State if Changes Detected
+    if schema_changed or data_changed:
+        databricks_instance = config['databricksConfig']['instance']
+        job_id = config['databricksConfig']['jobId']
+        trigger_databricks_job(databricks_instance, job_id)
+
+        current_timestamp = datetime.utcnow().isoformat()
+        update_state_in_cosmosdb(state_container, current_count, current_schema, current_timestamp)
+
+if __name__ == "__main__":
+    main()
