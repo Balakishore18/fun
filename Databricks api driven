@@ -82,3 +82,53 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+You're right, the consolidated script I provided earlier didn't include the Azure Functions Timer Trigger code. This is because Azure Functions are typically deployed as separate entities in the cloud, and they are not usually part of a standalone Python script. However, I can guide you through creating an Azure Function with a Timer Trigger that would fit into your workflow.
+
+Azure Function with Timer Trigger
+Azure Functions with a Timer Trigger are used to execute tasks on a schedule. Here’s how you can create one:
+
+1. Create an Azure Function App:
+You can do this in the Azure portal or using the Azure CLI.
+Make sure you have Azure Functions Core Tools installed if you're doing this locally.
+2. Create a Function with a Timer Trigger:
+Using the Azure Functions Core Tools, you can create a function with a timer trigger using the following command:
+
+bash
+Copy code
+func new --name MyTimerTrigger --template "Timer trigger" --authlevel anonymous
+3. Implement the Function:
+This function will be triggered as per the schedule defined in its configuration.
+
+The Python code for the function might look like this:
+
+python
+Copy code
+import datetime
+import logging
+
+import azure.functions as func
+
+def main(mytimer: func.TimerRequest) -> None:
+    utc_timestamp = datetime.datetime.utcnow().replace(
+        tzinfo=datetime.timezone.utc).isoformat()
+
+    if mytimer.past_due:
+        logging.info('The timer is past due!')
+
+    logging.info('Python timer trigger function ran at %s', utc_timestamp)
+
+    # Add the logic you want to execute here
+4. Set the Schedule:
+The schedule is set in the function's function.json file using a cron expression.
+Example for every 2 hours: "schedule": "0 0 */2 * * *"
+5. Deploy the Function to Azure:
+Once your function is ready, deploy it to Azure Functions.
+You can deploy directly from Visual Studio Code, or use the Azure Functions Core Tools.
+6. Integrate with Your Workflow:
+This function can now act as a part of your larger workflow, triggering at the scheduled times.
+You might have it call your main application logic, perhaps through an HTTP request or by triggering another Azure service.
+This setup allows you to schedule and run tasks without needing to manage the underlying infrastructure. The Timer Trigger function in Azure Functions acts independently but can be a part of your broader application workflow.
+
+Let me know if you need additional details on any of these steps or further assistance!
