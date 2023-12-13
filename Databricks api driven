@@ -1,61 +1,84 @@
-import azure.functions as func
+# Import necessary libraries
+from azure.cosmos import CosmosClient
+from pyspark.sql import SparkSession
 import requests
+import json
 import os
-from azure.cosmosdb.table.tableservice import TableService
-from azure.cosmosdb.table.models import Entity
 
-# Setup your Azure Table Storage connection
-table_service = TableService(account_name='your_account_name', account_key='your_account_key')
-table_name = 'your_table_name'
+# ----- Cosmos DB Connection and Configuration Retrieval -----
+def get_cosmosdb_config():
+    url = os.getenv('COSMOS_DB_URI')
+    key = os.getenv('COSMOS_DB_KEY')
+    database_name = 'your_database_name'
+    container_name = 'your_container_name'
 
-def main(mytimer: func.TimerRequest):
-    # Retrieve the last processed timestamp from Azure Table Storage
-    last_processed_timestamp = get_last_processed_timestamp()
+    client = CosmosClient(url, credential=key)
+    database = client.get_database_client(database_name)
+    container = database.get_container_client(container_name)
 
-    # Query the Delta table's change data feed for new changes since the last timestamp
-    new_changes = query_delta_change_feed(last_processed_timestamp)
+    query = "SELECT * FROM c WHERE c.id = 'config_id'"
+    items = list(container.query_items(query=query, enable_cross_partition_query=True))
 
-    # If there are new changes, trigger the Databricks job
-    if new_changes:
-        trigger_databricks_job()
-        # Update the last processed timestamp in Azure Table Storage
-        update_last_processed_timestamp(new_changes['latest_timestamp'])
+    return items[0] if items else None
 
-def get_last_processed_timestamp():
-    # Retrieve the entity with the last processed timestamp
-    entity = table_service.get_entity(table_name, 'PartitionKey', 'RowKey')
-    return entity['LastProcessedTimestamp']
+# ----- Delta Lake Table Connection -----
+def connect_to_delta_lake(delta_table_path):
+    spark = SparkSession.builder.appName("DeltaLakeConnection").getOrCreate()
+    df = spark.read.format("delta").load(delta_table_path)
+    return df
 
-def query_delta_change_feed(last_processed_timestamp):
-    # Assuming you have a way to query your Delta table's change feed, which may involve
-    # using Databricks' REST API to execute a job that does this and returns the results.
-    # For now, we'll just return a mock dictionary with changes.
-    # You would replace this with your actual logic to query the change feed.
-    return {
-        'latest_timestamp': '2021-01-01T00:00:00Z',
-        'changes': [
-            # ... list of changes
-        ]
+# ----- Change Data Feed Reading -----
+def read_change_data_feed(delta_table_path):
+    spark = SparkSession.builder.appName("ReadChangeData").getOrCreate()
+    change_df = spark.read.format("delta").option("readChangeData", "true").table(delta_table_path)
+    return change_df
+
+# ----- Schema Comparison -----
+def compare_schemas(current_schema, stored_schema):
+    return str(current_schema) != str(stored_schema)
+
+# ----- Databricks Job Triggering -----
+def trigger_databricks_job(databricks_instance, job_id):
+    databricks_token = os.getenv('DATABRICKS_TOKEN')
+    url = f"{databricks_instance}/api/2.0/jobs/run-now"
+    headers = {
+        'Authorization': f'Bearer {databricks_token}',
+        'Content-Type': 'application/json'
     }
+    payload = {"job_id": job_id}
 
-def trigger_databricks_job():
-    # Trigger a Databricks job via the Databricks REST API
-    # Replace with your actual Databricks domain and token
-    databricks_domain = 'your-databricks-domain'
-    databricks_token = 'your-databricks-token'
-    job_id = 'your-job-id'
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Failed to trigger job: {response.text}")
+        return None
 
-    response = requests.post(
-        f'https://{databricks_domain}/api/2.0/jobs/run-now',
-        headers={'Authorization': f'Bearer {databricks_token}'},
-        json={
-            'job_id': job_id,
-            # Add any other parameters your job requires
-        }
-    )
-    response.raise_for_status()  # This will raise an exception for non-2xx responses
+# ----- Main Application Flow -----
+def main():
+    # Step 1: Retrieve configuration from Cosmos DB
+    config = get_cosmosdb_config()
+    delta_table_path = config['deltaTableConfig']['tablePath']
 
-def update_last_processed_timestamp(new_timestamp):
-    # Update the entity in Azure Table Storage with the new timestamp
-    entity = {'PartitionKey': 'YourPartition', 'RowKey': 'YourRowKey', 'LastProcessedTimestamp': new_timestamp}
-    table_service.update_entity(table_name, entity)
+    # Step 2: Connect to Delta Lake Table
+    delta_df = connect_to_delta_lake(delta_table_path)
+
+    # Step 3: Read Change Data Feed
+    change_data = read_change_data_feed(delta_table_path)
+
+    # Step 4: Schema Comparison
+    # Assuming 'stored_schema' is retrieved from somewhere (e.g., Cosmos DB)
+    stored_schema = config['deltaTableConfig']['schema']
+    if compare_schemas(delta_df.schema, stored_schema):
+        print("Schema has changed.")
+
+    # Step 5: Trigger Databricks Job
+    # Assuming job details are retrieved from the config
+    databricks_instance = config['databricksJobConfig']['instance']
+    job_id = config['databricksJobConfig']['jobId']
+    trigger_response = trigger_databricks_job(databricks_instance, job_id)
+
+    print(f"Databricks job trigger response: {trigger_response}")
+
+if __name__ == "__main__":
+    main()
