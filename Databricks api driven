@@ -280,11 +280,18 @@ if __name__ == "__main__":
 
 from pyspark.sql import SparkSession
 
-# Initialize SparkSession (no need to set Delta configurations explicitly if using Databricks Runtime)
-spark = SparkSession.builder.appName("DeltaTableExample").getOrCreate()
+# Ensure that the Delta Lake package is specified in the configuration
+# Replace '0.8.0' with the version of the Delta Lake package compatible with your Spark version
+spark = SparkSession.builder \
+    .appName("DeltaTableExample") \
+    .config("spark.jars.packages", "io.delta:delta-core_2.12:0.8.0") \
+    .getOrCreate()
+
+# If you have the Delta Lake JAR available locally, you could also use the following configuration:
+# .config("spark.jars", "/path/to/delta-core_2.12-0.8.0.jar") \
 
 # Specify the path to your Delta table
-delta_table_path = "/mnt/delta/your_delta_table"
+delta_table_path = "dbfs:/path/to/your/delta/table"
 
 # Read the Delta table
 delta_df = spark.read.format("delta").load(delta_table_path)
@@ -292,5 +299,5 @@ delta_df = spark.read.format("delta").load(delta_table_path)
 # Show the first few rows of the DataFrame
 delta_df.show()
 
-# Remember to stop the SparkSession if you're running the code outside of a notebook
+# Stop the SparkSession when done
 spark.stop()
