@@ -279,23 +279,18 @@ if __name__ == "__main__":
 
 
 from pyspark.sql import SparkSession
-from delta import *
 
-# Initialize SparkSession
+# Initialize SparkSession (no need to set Delta configurations explicitly if using Databricks Runtime)
 spark = SparkSession.builder.appName("DeltaTableExample").getOrCreate()
 
-# Set up the DeltaTable configuration
-spark.conf.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-spark.conf.set("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+# Specify the path to your Delta table
+delta_table_path = "/mnt/delta/your_delta_table"
 
-# Location of the Delta table
-delta_table_path = "dbfs:/path/to/your/delta/table"
-
-# Read data from the Delta table
-df = spark.read.format("delta").load(delta_table_path)
+# Read the Delta table
+delta_df = spark.read.format("delta").load(delta_table_path)
 
 # Show the first few rows of the DataFrame
-df.show()
+delta_df.show()
 
-# Stop the SparkSession when done
+# Remember to stop the SparkSession if you're running the code outside of a notebook
 spark.stop()
