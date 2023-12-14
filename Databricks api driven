@@ -301,3 +301,16 @@ delta_df.show()
 
 # Stop the SparkSession when done
 spark.stop()
+
+
+{
+    "id": "config_id",
+    "deltaTableConfig": {
+        "tablePath": "path/to/your/delta/table",
+        "schema": "schema_definition_here"
+    },
+    "databricksJobConfig": {
+        "instance": "https://your.databricks.instance",
+        "jobId": "your_databricks_job_id"
+    }
+}
