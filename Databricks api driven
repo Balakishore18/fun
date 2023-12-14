@@ -314,3 +314,29 @@ spark.stop()
         "jobId": "your_databricks_job_id"
     }
 }
+
+
+from pyspark.sql import SparkSession
+
+builder = SparkSession.builder.appName("MyApp") \
+                      .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+                      .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+
+spark = builder.getOrCreate()
+
+
+
+
+
+
+from pyspark.sql import SparkSession
+
+# Configure Spark to use Delta Lake
+builder = SparkSession.builder.appName("MyApp") \
+                       .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+                       .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+
+# Add the Delta Lake package if you are not using a cluster that already has it
+builder = builder.config("spark.jars.packages", "io.delta:delta-core_2.12:<delta_version>")
+
+spark = builder.getOrCreate()
