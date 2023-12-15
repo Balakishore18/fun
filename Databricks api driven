@@ -340,3 +340,30 @@ builder = SparkSession.builder.appName("MyApp") \
 builder = builder.config("spark.jars.packages", "io.delta:delta-core_2.12:<delta_version>")
 
 spark = builder.getOrCreate()
+
+
+
+from pyspark.sql import SparkSession
+
+# Initialize a SparkSession with Delta Lake support
+spark = SparkSession.builder \
+    .appName("DeltaLakeReadExample") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .getOrCreate()
+
+# Example path for your Delta table
+delta_table_path = "/path/to/your/delta-table"
+
+# Reading data from the Delta table
+try:
+    delta_df = spark.read.format("delta").load(delta_table_path)
+
+    # Showing the data
+    print("Data read successfully from the Delta table:")
+    delta_df.show()
+except Exception as e:
+    print("Error reading the Delta table:", e)
+
+# Stop the SparkSession
+spark.stop()
