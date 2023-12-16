@@ -367,3 +367,51 @@ except Exception as e:
 
 # Stop the SparkSession
 spark.stop()
+
+
+
+
+
+from pyspark.sql import SparkSession
+
+def create_spark_session():
+    # Build a SparkSession; only required if not using the provided 'spark' session in Databricks
+    spark = SparkSession.builder \
+        .appName("DeltaLakeChangeDataFeedExample") \
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+        .getOrCreate()
+    return spark
+
+def connect_to_delta_lake(spark, delta_table_path):
+    # Read the Delta table
+    df = spark.read.format("delta").load(delta_table_path)
+    df.show(5, False)
+    df.printSchema()
+    return df
+
+def read_change_data_feed(spark, delta_table_path):
+    # Read the change data feed for a Delta table
+    change_df = spark.read.format("delta").option("readChangeFeed", "true").table(delta_table_path)
+    change_df.show(2, False)
+    print("The changed data count:", change_df.count())
+    return change_df
+
+def main():
+    # Initialize Spark session
+    spark = create_spark_session()
+
+    # Example Delta table path - replace with your actual table path
+    delta_table_path = "/path/to/your/delta/table"
+
+    # Connect to Delta Lake Table
+    connect_to_delta_lake(spark, delta_table_path)
+
+    # Read Change Data Feed
+    read_change_data_feed(spark, delta_table_path)
+
+    # Stop the Spark session
+    spark.stop()
+
+if __name__ == "__main__":
+    main()
