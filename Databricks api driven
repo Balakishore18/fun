@@ -219,7 +219,7 @@ def trigger_databricks_job(databricks_instance, job_id):
         headers = {
             'Authorization': f'Bearer {databricks_token}',
             'Content-Type': 'application/json'
-        }
+        }a
         payload = {"job_id": job_id}
 
         response = requests.post(url, headers=headers, data=json.dumps(payload))
