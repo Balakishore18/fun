@@ -665,3 +665,57 @@ def main():
 if __name__ == "__main__":
     # In Databricks, the Spark session is provided as 'spark'.
     main()
+
+
+
+from pyspark.sql import SparkSession
+from delta.tables import DeltaTable
+
+def connect_to_delta_lake(delta_table_path):
+    # ... (existing code)
+
+def get_latest_version(delta_table):
+    try:
+        # Get the latest version number from the Delta table's history
+        latest_version = delta_table.history(1).select("version").collect()[0]["version"]
+        return latest_version
+    except Exception as e:
+        print(f"Error getting the latest version: {e}")
+        return None
+
+def read_change_data_feed(spark, delta_table_path, previous_version):
+    try:
+        # Load the Delta table as of the previous version
+        previous_df = spark.read.format("delta").option("versionAsOf", previous_version).load(delta_table_path)
+        
+        # Load the current version of the Delta table
+        current_df = spark.read.format("delta").load(delta_table_path)
+
+        # Find rows that are in the current version but not in the previous version
+        changes_df = current_df.exceptAll(previous_df)
+        changes_row_count = changes_df.count()
+        
+        if changes_row_count == 0:
+            print("No changes detected since the last version.")
+        else:
+            print(f"Detected {changes_row_count} changes since the last version:")
+            changes_df.show(2, False)  # Show 2 rows for brevity
+        
+        return changes_df, changes_row_count
+    except Exception as e:
+        print(f"Error reading change data feed: {e}")
+        return None, 0
+
+def main():
+    # ... (existing main function code)
+    
+    # Get the latest version number
+    delta_table = DeltaTable.forPath(spark, delta_table_path)
+    latest_version = get_latest_version(delta_table)
+    if latest_version is not None:
+        print(f"Reading changes since version {latest_version - 1}")
+        change_data_df, change_row_count = read_change_data_feed(spark, delta_table_path, latest_version - 1)
+    else:
+        print("Could not determine the latest version for the Delta table.")
+
+# ... (rest of the script)
