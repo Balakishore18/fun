@@ -604,3 +604,64 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+
+from pyspark.sql import SparkSession
+from delta.tables import DeltaTable
+
+# This function connects to a Delta table and returns a DataFrame
+def connect_to_delta_lake(delta_table_path):
+    try:
+        df = spark.read.format("delta").load(delta_table_path)
+        row_count = df.count()  # Count the number of rows in the Delta table
+        print(f"Successfully connected to the Delta table. Total rows: {row_count}")
+        df.show(2, False)  # Show the top 2 rows
+        return df, row_count
+    except Exception as e:
+        print(f"Error connecting to the Delta table: {e}")
+        return None, 0
+
+# This function reads the change data feed from a Delta table using DeltaTable utility
+def read_change_data_feed(delta_table):
+    try:
+        # Read the change data feed for the Delta table
+        change_df = delta_table.toDF()
+        change_row_count = change_df.count()  # Count the number of rows in the change data feed
+        if change_row_count == 0:
+            print("No changes detected in the change data feed.")
+        else:
+            print(f"Successfully read change data feed from the Delta table. Total changed rows: {change_row_count}")
+            change_df.show(2, False)  # Show 2 rows for brevity
+        return change_df, change_row_count
+    except Exception as e:
+        print(f"Error reading change data feed: {e}")
+        return None, 0
+
+# Main application flow
+def main():
+    delta_table_path = "/path/to/your/delta/table"  # Specify the path to your Delta table
+
+    # Connect to the Delta table and get a DataFrame
+    df, row_count = connect_to_delta_lake(delta_table_path)
+    if df is None:
+        print("Failed to connect to Delta table. Exiting.")
+        return
+
+    # Create a DeltaTable instance for the change data feed
+    try:
+        delta_table = DeltaTable.forPath(spark, delta_table_path)
+        print("DeltaTable instance created.")
+    except Exception as e:
+        print(f"Error creating DeltaTable instance: {e}")
+        return
+
+    # Read the change data feed
+    change_data_df, change_row_count = read_change_data_feed(delta_table)
+    if change_data_df is None:
+        print("Failed to read the change data feed. Exiting.")
+        return
+
+# Entry point for the script
+if __name__ == "__main__":
+    # In Databricks, the Spark session is provided as 'spark'.
+    main()
