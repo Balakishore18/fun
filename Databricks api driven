@@ -478,3 +478,65 @@ if __name__ == "__main__":
     # If outside Databricks, stop the Spark session after the job is done.
     # spark.stop()
 
+
+
+from pyspark.sql import SparkSession
+from delta.tables import DeltaTable
+
+# This function connects to a Delta table and returns a DataFrame
+def connect_to_delta_lake(delta_table_path):
+    try:
+        df = spark.read.format("delta").load(delta_table_path)
+        print("Successfully connected to the Delta table.")
+        return df
+    except Exception as e:
+        print(f"Error connecting to the Delta table: {e}")
+        return None
+
+# This function reads the change data feed from a Delta table using DeltaTable utility
+def read_change_data_feed(delta_table):
+    try:
+        # Assuming the Delta table has the change data feed enabled
+        # and the Delta Lake version supports CDF.
+        change_df = delta_table.toDF()
+        change_df.show(2, False)  # Show 2 rows for brevity
+        print("Successfully read change data feed from the Delta table.")
+        return change_df
+    except Exception as e:
+        print(f"Error reading change data feed: {e}")
+        return None
+
+# Main application flow
+def main():
+    delta_table_path = "/path/to/your/delta/table"  # Specify the path to your Delta table
+
+    # Connect to the Delta table and get a DataFrame
+    df = connect_to_delta_lake(delta_table_path)
+    if df is None:
+        print("Failed to connect to Delta table. Exiting.")
+        return
+
+    # Create a DeltaTable instance for the change data feed
+    try:
+        delta_table = DeltaTable.forPath(spark, delta_table_path)
+        print("DeltaTable instance created.")
+    except Exception as e:
+        print(f"Error creating DeltaTable instance: {e}")
+        return
+
+    # Read the change data feed
+    change_data_df = read_change_data_feed(delta_table)
+    if change_data_df is None:
+        print("Failed to read the change data feed. Exiting.")
+        return
+
+# Entry point for the script
+if __name__ == "__main__":
+    # In Databricks, the Spark session is provided as 'spark'.
+    # If running outside Databricks, uncomment the next line to create a Spark session.
+    # spark = SparkSession.builder.appName("DeltaLakeChangeDataFeed").getOrCreate()
+
+    main()
+
+    # If you created a Spark session, stop it after the application finishes.
+    # spark.stop()
