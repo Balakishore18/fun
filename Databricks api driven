@@ -415,3 +415,66 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+from pyspark.sql import SparkSession
+
+# Function to connect to a Delta table and display the schema and row count
+def connect_to_delta_lake(delta_table_path):
+    try:
+        df = spark.read.format("delta").load(delta_table_path)
+        df.show(5, False)
+        df.printSchema()
+        print(f"Connected successfully to the Delta table. Row count: {df.count()}")
+        return df
+    except Exception as e:
+        print(f"Failed to connect to the Delta table: {e}")
+        return None
+
+# Function to read the change data feed from a Delta table
+def read_change_data_feed(delta_table_path):
+    try:
+        change_df = spark.read.format("delta").option("readChangeFeed", "true").table(delta_table_path)
+        change_df.show(2, False)  # Show the first 2 changes without truncating the columns
+        change_count = change_df.count()  # Get the count of changed rows
+        print(f"The changed data count: {change_count}")
+        return change_df
+    except Exception as e:
+        print(f"Failed to read change data feed: {e}")
+        return None
+
+# Main function to execute the workflow
+def main():
+    # Define the path to the Delta table
+    delta_table_path = "/path/to/your/delta/table"
+
+    # Step 1: Connect to Delta Lake Table
+    print("Connecting to Delta Lake table...")
+    df = connect_to_delta_lake(delta_table_path)
+    if df is None:
+        return  # Exit if connection to Delta table failed
+
+    # Step 2: Read Change Data Feed
+    print("Reading change data feed...")
+    change_data_df = read_change_data_feed(delta_table_path)
+    if change_data_df is None:
+        return  # Exit if reading change data feed failed
+
+    # Additional processing with df or change_data_df can be done here
+    # ...
+
+# Entry point for the script
+if __name__ == "__main__":
+    # In Databricks, the Spark session (named 'spark') is already instantiated for you.
+    # Hence, you do not need to create it manually.
+    # If you run this script outside Databricks, you'll need to uncomment the next two lines:
+    
+    # spark = SparkSession.builder.appName("DeltaLakeWorkflow").getOrCreate()
+    
+    main()
+
+    # If outside Databricks, stop the Spark session after the job is done.
+    # spark.stop()
+
