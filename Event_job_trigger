@@ -121,6 +121,52 @@ def create_spark_session(databricks_workspace, databricks_token):
     # Add any other necessary configuration specific to your Databricks setup
     return spark_builder.getOrCreate()
 
+def connect_to_delta_lake(spark, delta_table_path):
+    """
+    Connect to a Delta Lake table and return a DataFrame and the row count.
+    """
+    try:
+        df = spark.read.format("delta").load(delta_table_path)
+        row_count = df.count()
+        print(f"Successfully connected to the Delta table. Total rows: {row_count}")
+        df.show(2, False)
+        return df, row_count
+    except Exception as e:
+        print(f"Error connecting to the Delta table: {e}")
+        return None, 0
+
+def get_latest_version(delta_table):
+    """
+    Get the latest version of the Delta table.
+    """
+    try:
+        latest_version = delta_table.history(1).select("version").collect()[0]["version"]
+        return latest_version
+    except Exception as e:
+        print(f"Error getting the latest version: {e}")
+        return None
+
+def read_change_data_feed(spark, delta_table_path, previous_version):
+    """
+    Read the change data feed from the Delta table.
+    """
+    try:
+        previous_df = spark.read.format("delta").option("versionAsOf", previous_version).load(delta_table_path)
+        current_df = spark.read.format("delta").load(delta_table_path)
+        changes_df = current_df.exceptAll(previous_df)
+        changes_row_count = changes_df.count()
+
+        if changes_row_count == 0:
+            print("No changes detected since the last version.")
+        else:
+            print(f"Detected {changes_row_count} changes since version {previous_version}:")
+            changes_df.show(2, False)
+
+        return changes_df, changes_row_count
+    except Exception as e:
+        print(f"Error reading change data feed: {e}")
+        return None, 0
+
 def trigger_databricks_job(databricks_workspace, databricks_token, job_id):
     """
     Trigger a Databricks job using the REST API and PAT for authentication.
@@ -138,8 +184,6 @@ def trigger_databricks_job(databricks_workspace, databricks_token, job_id):
     else:
         print(f"Failed to trigger job. Status: {response.status_code}, Response: {response.text}")
 
-# Other functions (connect_to_delta_lake, get_latest_version, read_change_data_feed) remain the same
-
 def main():
     databricks_workspace = "<your-databricks-workspace-url>"  # e.g., "dbc-1234.cloud.databricks.com"
     databricks_token = "<your-databricks-pat-token>"
@@ -149,7 +193,7 @@ def main():
     # Initialize Spark session to connect to Databricks
     spark = create_spark_session(databricks_workspace, databricks_token)
 
-    df, row_count = connect_to_delta_lake(delta_table_path)
+    df, row_count = connect_to_delta_lake(spark, delta_table_path)
     if df is None:
         print("Failed to connect to the Delta table. Exiting.")
         return
