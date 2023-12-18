@@ -1,0 +1,29 @@
+echo $JAVA_HOME
+
+readlink -f /usr/bin/java
+
+
+export JAVA_HOME=/path/to/java
+export PATH=$JAVA_HOME/bin:$PATH
+
+
+echo 'export JAVA_HOME=/path/to/java' >> ~/.bashrc
+echo 'export PATH=$JAVA_HOME/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+
+tar -xzf spark-<version>-bin-hadoop<version>.tgz
+
+
+export SPARK_HOME=/path/to/spark
+export PATH=$SPARK_HOME/bin:$PATH
+
+
+echo 'export SPARK_HOME=/path/to/spark' >> ~/.bashrc
+echo 'export PATH=$SPARK_HOME/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+
+pip install pyspark
+
+
