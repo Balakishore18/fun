@@ -373,3 +373,21 @@ spark = SparkSession.builder \
     .config("spark.executor.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
     .getOrCreate()
 
+
+from pyspark.sql import SparkSession
+
+# Replace these with your actual account name and access key
+account_name = "your-account-name"
+access_key = "your-access-key"
+
+spark = SparkSession.builder \
+    .appName("MyApp") \
+    .config("spark.jars.packages", "io.delta:delta-core_2.12:2.3.0") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .config("fs.azure.account.key." + account_name + ".dfs.core.windows.net", access_key) \
+    .config("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem") \
+    .config("spark.driver.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
+    .config("spark.executor.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
+    .getOrCreate()
+
