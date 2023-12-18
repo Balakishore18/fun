@@ -100,3 +100,73 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+import requests
+from pyspark.sql import SparkSession
+from delta.tables import DeltaTable
+
+def create_spark_session(databricks_workspace, databricks_token):
+    """
+    Create and configure a Spark session to connect to Databricks.
+    """
+    spark_builder = SparkSession.builder.appName("DeltaLakeChangeDetection")
+    spark_builder.config("spark.databricks.workspaceUrl", databricks_workspace)
+    spark_builder.config("spark.databricks.token", databricks_token)
+    spark_builder.config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+    spark_builder.config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+
+    # Add any other necessary configuration specific to your Databricks setup
+    return spark_builder.getOrCreate()
+
+def trigger_databricks_job(databricks_workspace, databricks_token, job_id):
+    """
+    Trigger a Databricks job using the REST API and PAT for authentication.
+    """
+    url = f"https://{databricks_workspace}/api/2.0/jobs/run-now"
+    headers = {
+        "Authorization": f"Bearer {databricks_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {"job_id": job_id}
+    
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code == 200:
+        print(f"Triggered job {job_id}. Response: {response.json()}")
+    else:
+        print(f"Failed to trigger job. Status: {response.status_code}, Response: {response.text}")
+
+# Other functions (connect_to_delta_lake, get_latest_version, read_change_data_feed) remain the same
+
+def main():
+    databricks_workspace = "<your-databricks-workspace-url>"  # e.g., "dbc-1234.cloud.databricks.com"
+    databricks_token = "<your-databricks-pat-token>"
+    delta_table_path = "/path/to/your/delta/table"
+    job_id = "<your-job-id>"  # Replace with your actual job ID
+
+    # Initialize Spark session to connect to Databricks
+    spark = create_spark_session(databricks_workspace, databricks_token)
+
+    df, row_count = connect_to_delta_lake(delta_table_path)
+    if df is None:
+        print("Failed to connect to the Delta table. Exiting.")
+        return
+
+    delta_table = DeltaTable.forPath(spark, delta_table_path)
+    latest_version = get_latest_version(delta_table)
+
+    if latest_version is not None and latest_version > 0:
+        previous_version = latest_version - 1
+        change_data_df, change_row_count = read_change_data_feed(spark, delta_table_path, previous_version)
+        if change_row_count > 0:
+            print(f"Changes detected. Triggering job with ID {job_id}.")
+            trigger_databricks_job(databricks_workspace, databricks_token, job_id)
+        else:
+            print("No changes detected. No job will be triggered.")
+    else:
+        print("Could not determine the latest version for the Delta table or no previous version available.")
+
+if __name__ == "__main__":
+    main()
