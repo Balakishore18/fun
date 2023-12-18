@@ -358,3 +358,21 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+from pyspark.sql import SparkSession
+
+# Initialize SparkSession with Delta Lake package
+spark = SparkSession.builder \
+    .appName("DeltaTableConnection") \
+    .config("spark.jars.packages", "io.delta:delta-core_2.12:2.3.0") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .getOrCreate()
+
+# Example: Reading a Delta table
+delta_table_path = "path/to/your/delta/table"
+df = spark.read.format("delta").load(delta_table_path)
+df.show()
