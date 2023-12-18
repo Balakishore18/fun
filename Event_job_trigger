@@ -364,15 +364,12 @@ if __name__ == "__main__":
 
 from pyspark.sql import SparkSession
 
-# Initialize SparkSession with Delta Lake package
 spark = SparkSession.builder \
-    .appName("DeltaTableConnection") \
+    .appName("MyApp") \
     .config("spark.jars.packages", "io.delta:delta-core_2.12:2.3.0") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
     .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .config("spark.driver.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
+    .config("spark.executor.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
     .getOrCreate()
 
-# Example: Reading a Delta table
-delta_table_path = "path/to/your/delta/table"
-df = spark.read.format("delta").load(delta_table_path)
-df.show()
