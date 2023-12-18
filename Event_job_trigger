@@ -391,3 +391,32 @@ spark = SparkSession.builder \
     .config("spark.executor.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
     .getOrCreate()
 
+
+from pyspark.sql import SparkSession
+
+# Azure Storage account information
+account_name = "your_account_name"  # Replace with your storage account name
+access_key = "your_access_key"  # Replace with your storage account access key
+
+# Initialize SparkSession with Delta Lake package and Azure Storage configuration
+spark = SparkSession.builder \
+    .appName("DeltaTableConnector") \
+    .config("spark.jars.packages", "io.delta:delta-core_2.12:2.3.0") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .config(f"fs.azure.account.key.{account_name}.dfs.core.windows.net", access_key) \
+    .config("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem") \
+    .config("spark.driver.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
+    .config("spark.executor.extraJavaOptions", "-Dhttp.proxyHost=proxy.statestr.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.statestr.com -Dhttps.proxyPort=80") \
+    .getOrCreate()
+
+# Path to the Delta table
+delta_table_path = "dbfs:/path/to/your/delta/table"  # Replace with the path to your Delta table
+
+# Read the Delta table
+df = spark.read.format("delta").load(delta_table_path)
+
+# Show the data
+df.show()
+
+
