@@ -30,3 +30,8 @@ export http_proxy=http://proxy.statsetr.com:80
 export https_proxy=http://proxy.statsetr.com:80
 wget https://archive.apache.org/dist/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz
 
+
+export http_proxy=http://proxy.statstr.com:80
+export https_proxy=http://proxy.statstr.com:80
+wget --no-check-certificate -e use_proxy=yes -e http_proxy=$http_proxy -e https_proxy=$https_proxy https://archive.apache.org/dist/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz
+
