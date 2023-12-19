@@ -64,3 +64,9 @@ sudo chown azuresuer:azuresuer /opt/spark/work
 
 spark-submit --packages io.delta:delta-core_2.12:<delta_version> your_script.py
 
+wget https://repo1.maven.org/maven2/io/delta/delta-standalone_2.12/0.3.0/delta-standalone_2.12-0.3.0.jar
+
+
+wget https://repo1.maven.org/maven2/io/delta/delta-standalone_2.12/0.3.0/delta-standalone_2.12-0.3.0.jar
+
+spark-submit --jars /path/to/delta-standalone_2.12-0.3.0.jar your_script.py
