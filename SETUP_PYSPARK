@@ -96,3 +96,11 @@ df = spark.read.format("delta").load(delta_table_path)
 df.show()
 
 spark-submit --jars /home/azureuser/.ivy2/jars/delta-standalone-2.12-0.3.0.jar /path/to/your_script.py
+
+
+spark-submit \
+  --packages io.delta:delta-core_2.12:0.8.0 \
+  --conf "spark.driver.extraJavaOptions=-Dhttp.proxyHost=your_proxy_host -Dhttp.proxyPort=your_proxy_port" \
+  --conf "spark.executor.extraJavaOptions=-Dhttp.proxyHost=your_proxy_host -Dhttp.proxyPort=your_proxy_port" \
+  /path/to/your_script.py
+
