@@ -60,3 +60,7 @@ sudo mkdir -p /opt/spark/work
 sudo chown azuresuer:azuresuer /opt/spark/work
 
 /opt/spark/bin/spark-submit --master spark://[master-host]:7077 /path/to/your_script.py
+
+
+spark-submit --packages io.delta:delta-core_2.12:<delta_version> your_script.py
+
