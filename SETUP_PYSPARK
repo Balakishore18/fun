@@ -110,3 +110,43 @@ spark-submit \
   --conf "spark.driver.extraJavaOptions=-Dhttp.proxyHost=your_proxy_host -Dhttp.proxyPort=your_proxy_port" \
   --conf "spark.executor.extraJavaOptions=-Dhttp.proxyHost=your_proxy_host -Dhttp.proxyPort=your_proxy_port" \
   /path/to/your_script.py
+
+
+
+from pyspark.sql import SparkSession
+from pyspark.sql.utils import AnalysisException
+
+# Proxy settings
+proxy_host = "your.proxy.host"
+proxy_port = "your_proxy_port"
+
+# Initialize Spark session with Delta support and proxy settings
+spark = SparkSession.builder \
+    .appName("DeltaTableConnectivityCheck") \
+    .config("spark.jars.packages", "io.delta:delta-core_2.12:x.y.z") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .config("spark.driver.extraJavaOptions", f"-Dhttp.proxyHost={proxy_host} -Dhttp.proxyPort={proxy_port} -Dhttps.proxyHost={proxy_host} -Dhttps.proxyPort={proxy_port}") \
+    .config("spark.executor.extraJavaOptions", f"-Dhttp.proxyHost={proxy_host} -Dhttp.proxyPort={proxy_port} -Dhttps.proxyHost={proxy_host} -Dhttps.proxyPort={proxy_port}") \
+    .getOrCreate()
+
+# Replace 'x.y.z' with the version of Delta Lake you are using, 
+# and make sure it is compatible with your Spark version.
+
+# Path to your Delta table
+delta_table_path = "/path/to/your/delta-table"
+
+try:
+    # Try to read the Delta table
+    df = spark.read.format("delta").load(delta_table_path)
+    
+    # Show the first few rows of the DataFrame to verify connectivity
+    df.show()
+
+    print("Successfully connected to the Delta table.")
+except AnalysisException as e:
+    print("Failed to connect to the Delta table.")
+    print(str(e))
+
+# Stop the Spark session
+spark.stop()
