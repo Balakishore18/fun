@@ -95,3 +95,4 @@ df = spark.read.format("delta").load(delta_table_path)
 # Show the data
 df.show()
 
+spark-submit --jars /home/azureuser/.ivy2/jars/delta-standalone-2.12-0.3.0.jar /path/to/your_script.py
