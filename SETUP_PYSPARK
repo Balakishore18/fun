@@ -50,3 +50,7 @@ spark-shell
 
 
 sed -i 's/\r$//' /path/to/spark/bin/spark-shell
+
+
+cat /path/to/spark/bin/spark-shell | tr -d '\r' > /path/to/spark/bin/spark-shell.temp
+mv /path/to/spark/bin/spark-shell.temp /path/to/spark/bin/spark-shell
