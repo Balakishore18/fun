@@ -104,3 +104,9 @@ spark-submit \
   --conf "spark.executor.extraJavaOptions=-Dhttp.proxyHost=your_proxy_host -Dhttp.proxyPort=your_proxy_port" \
   /path/to/your_script.py
 
+spark-submit \
+  --packages io.delta:delta-core_2.12:2.3.0,org.apache.hadoop:hadoop-azure:3.3.0 \
+  --conf "spark.hadoop.fs.azure"="org.apache.hadoop.fs.azure.NativeAzureFileSystem" \
+  --conf "spark.driver.extraJavaOptions=-Dhttp.proxyHost=your_proxy_host -Dhttp.proxyPort=your_proxy_port" \
+  --conf "spark.executor.extraJavaOptions=-Dhttp.proxyHost=your_proxy_host -Dhttp.proxyPort=your_proxy_port" \
+  /path/to/your_script.py
