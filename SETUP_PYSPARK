@@ -59,3 +59,4 @@ mv /path/to/spark/bin/spark-shell.temp /path/to/spark/bin/spark-shell
 sudo mkdir -p /opt/spark/work
 sudo chown azuresuer:azuresuer /opt/spark/work
 
+/opt/spark/bin/spark-submit --master spark://[master-host]:7077 /path/to/your_script.py
