@@ -46,3 +46,7 @@ export PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
 source ~/.bashrc
 
 spark-shell
+
+
+
+sed -i 's/\r$//' /path/to/spark/bin/spark-shell
