@@ -150,3 +150,13 @@ except AnalysisException as e:
 
 # Stop the Spark session
 spark.stop()
+
+
+
+spark-submit \
+  --packages io.delta:delta-core_2.12:x.y.z \
+  --conf "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension" \
+  --conf "spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog" \
+  --conf "spark.driver.extraJavaOptions=-Dhttp.proxyHost=proxy_host -Dhttp.proxyPort=proxy_port -Dhttps.proxyHost=proxy_host -Dhttps.proxyPort=proxy_port" \
+  --conf "spark.executor.extraJavaOptions=-Dhttp.proxyHost=proxy_host -Dhttp.proxyPort=proxy_port -Dhttps.proxyHost=proxy_host -Dhttps.proxyPort=proxy_port" \
+  your_pyspark_script.py
