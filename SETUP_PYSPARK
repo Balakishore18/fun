@@ -160,3 +160,7 @@ spark-submit \
   --conf "spark.driver.extraJavaOptions=-Dhttp.proxyHost=proxy_host -Dhttp.proxyPort=proxy_port -Dhttps.proxyHost=proxy_host -Dhttps.proxyPort=proxy_port" \
   --conf "spark.executor.extraJavaOptions=-Dhttp.proxyHost=proxy_host -Dhttp.proxyPort=proxy_port -Dhttps.proxyHost=proxy_host -Dhttps.proxyPort=proxy_port" \
   your_pyspark_script.py
+
+
+spark-submit --packages com.databricks:spark-avro_2.12:4.0.0,org.apache.hadoop:hadoop-azure:3.2.0 --jars /path/to/your/jar1,/path/to/your/jar2 your-spark-application.py
+
