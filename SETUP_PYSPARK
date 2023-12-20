@@ -164,3 +164,29 @@ spark-submit \
 
 spark-submit --packages com.databricks:spark-avro_2.12:4.0.0,org.apache.hadoop:hadoop-azure:3.2.0 --jars /path/to/your/jar1,/path/to/your/jar2 your-spark-application.py
 
+
+
+
+from pyspark.sql import SparkSession
+
+# Assuming you have the Databricks host and token configured in your environment or Databricks Connect setup
+# You would typically set these in your shell environment or in a configuration file
+databricks_host = "https://<your-databricks-workspace-url>"
+databricks_token = "<your-access-token>"
+
+# Initialize SparkSession with Databricks Connect
+spark = SparkSession.builder \
+    .appName("DatabricksConnectDeltaExample") \
+    .config("spark.databricks.workspace.url", databricks_host) \
+    .config("spark.databricks.token", databricks_token) \
+    .getOrCreate()
+
+# Example to read a Delta table
+delta_table_path = "dbfs:/mnt/delta/<your-delta-table>"
+df = spark.read.format("delta").load(delta_table_path)
+df.show()
+
+# Perform operations on the DataFrame as needed
+
+# Stop the SparkSession when done
+spark.stop()
