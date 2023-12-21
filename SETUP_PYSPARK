@@ -372,3 +372,86 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+import requests
+from pyspark.sql import SparkSession
+
+# Replace with your actual Databricks workspace URL and personal access token
+databricks_host = "https://<workspace-name>.<region>.azuredatabricks.net"
+databricks_token = "<your-access-token>"
+
+# Replace with your actual Delta table path and job ID
+delta_table_path = "dbfs:/mnt/delta/<your-delta-table>"
+job_id = "<your-job-id>"
+
+def create_spark_session(databricks_host, databricks_token):
+    spark = SparkSession.builder \
+        .appName("DatabricksConnectDeltaExample") \
+        .config("spark.databricks.workspace.url", databricks_host) \
+        .config("spark.databricks.token", databricks_token) \
+        .getOrCreate()
+    return spark
+
+def get_latest_version(spark, delta_table_path):
+    try:
+        df = spark.read.format("delta").load(delta_table_path)
+        df.createOrReplaceTempView("deltaTable")
+        latest_version = spark.sql("DESCRIBE HISTORY deltaTable LIMIT 1").collect()[0]["version"]
+        return latest_version
+    except Exception as e:
+        print(f"Error getting the latest version: {e}")
+        return None
+
+def read_change_data_feed(spark, delta_table_path, previous_version):
+    try:
+        # Load the Delta table as of the previous version
+        previous_df = spark.read.format("delta").option("versionAsOf", previous_version).load(delta_table_path)
+        previous_df.createOrReplaceTempView("previousDeltaTable")
+
+        # Load the latest version of the Delta table
+        current_df = spark.read.format("delta").load(delta_table_path)
+        current_df.createOrReplaceTempView("currentDeltaTable")
+
+        # Find changes by executing a SQL query to subtract the two DataFrames
+        changes_df = spark.sql("""
+            SELECT * FROM currentDeltaTable
+            EXCEPT ALL
+            SELECT * FROM previousDeltaTable
+        """)
+        changes_row_count = changes_df.count()
+        if changes_row_count > 0:
+            print(f"Detected {changes_row_count} changes since version {previous_version}:")
+            changes_df.show()
+            return changes_df, changes_row_count
+        else:
+            print("No changes detected since the last version.")
+            return None, 0
+    except Exception as e:
+        print(f"Error reading change data feed: {e}")
+        return None, 0
+
+def trigger_databricks_job(databricks_workspace, databricks_token, job_id):
+    url = f"{databricks_workspace}/api/2.0/jobs/run-now"
+    headers = {
+        "Authorization": f"Bearer {databricks_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {"job_id": job_id}
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code == 200:
+        print(f"Job triggered successfully. Response: {response.json()}")
+    else:
+        print(f"Failed to trigger job. Status: {response.status_code}, Response: {response.text}")
+
+def main():
+    spark = create_spark_session(databricks_host, databricks_token)
+    latest_version = get_latest_version(spark, delta_table_path)
+    if latest_version is not None:
+        changes_df, changes_row_count = read_change_data_feed(spark, delta_table_path, latest_version - 1)
+        if changes_row_count > 0:
+            trigger_databricks_job(databricks_host, databricks_token, job_id)
+    spark.stop()
+
+if __name__ == "__main__":
+    main()
+
