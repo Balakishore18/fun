@@ -420,3 +420,87 @@ df = spark.read.format("delta").load(delta_table_path)
 df.show()
 
 
+from pyspark.sql import SparkSession
+from delta.tables import DeltaTable
+from azure.cosmos import CosmosClient, exceptions
+
+# Initialize Cosmos DB Client
+cosmos_endpoint = "YOUR_COSMOS_DB_ENDPOINT"
+cosmos_key = "YOUR_COSMOS_DB_KEY"
+database_name = "YOUR_DATABASE_NAME"
+container_name = "YOUR_CONTAINER_NAME"
+
+client = CosmosClient(cosmos_endpoint, cosmos_key)
+database_client = client.get_database_client(database_name)
+container_client = database_client.get_container_client(container_name)
+
+# Initialize Spark Session
+spark = (
+    SparkSession.builder
+    .appName("DeltaTableChangeFeed")
+    .getOrCreate()
+)
+
+# Function to get the last processed timestamp and version from Cosmos DB
+def get_last_processed_info():
+    try:
+        for item in container_client.query_items(
+            query="SELECT * FROM c WHERE c.id = 'last_processed_info'",
+            enable_cross_partition_query=True):
+            return item['timestamp'], item['version']
+    except exceptions.CosmosHttpResponseError as e:
+        print(f"An error occurred: {e}")
+        return None, None
+
+# Function to update the last processed timestamp and version in Cosmos DB
+def update_last_processed_info(timestamp, version):
+    try:
+        container_client.upsert_item({
+            'id': 'last_processed_info',
+            'timestamp': timestamp,
+            'version': version
+        })
+    except exceptions.CosmosHttpResponseError as e:
+        print(f"An error occurred: {e}")
+
+# Function to connect to delta table
+def connect_to_delta_table(spark, delta_table_path):
+    # ... Your existing logic to connect to the Delta table ...
+    pass
+
+# Function to get the latest version of the Delta table
+def get_latest_version(delta_table):
+    try:
+        history_df = delta_table.history(1)
+        latest_version = history_df.select("version").collect()[0]["version"]
+        return latest_version
+    except Exception as e:
+        print(f"Error getting the latest version: {e}")
+        return None
+
+# Main logic
+def main():
+    delta_table_path = "YOUR_DELTA_TABLE_PATH"
+    delta_table = DeltaTable.forPath(spark, delta_table_path)
+    latest_version = get_latest_version(delta_table)  # Your function to get the latest version
+    latest_timestamp = delta_table.history(1).select("timestamp").collect()[0]["timestamp"]
+
+    last_processed_timestamp, last_processed_version = get_last_processed_info()
+
+    if latest_version is not None and latest_timestamp is not None:
+        if (latest_version > last_processed_version or 
+            latest_timestamp > last_processed_timestamp):
+            # Trigger the job only if there are new changes
+            print(f"New changes detected. Triggering job...")
+            # Your code to trigger the Databricks job
+            
+            # Update the last processed timestamp and version
+            update_last_processed_info(latest_timestamp, latest_version)
+        else:
+            print("No new changes since the last run. Job will not be triggered.")
+    else:
+        print("Unable to determine the latest version or timestamp of the delta table.")
+
+# Entry point for the script
+if __name__ == "__main__":
+    main()
