@@ -504,3 +504,45 @@ def main():
 # Entry point for the script
 if __name__ == "__main__":
     main()
+
+
+
+
+from pyspark.sql.functions import col
+
+def has_schema_changed(spark, delta_table_path, last_processed_version):
+    # Get the history of the Delta table
+    history_df = spark.sql(f"DESCRIBE HISTORY `{delta_table_path}`")
+    
+    # Get the schema of the last processed version
+    last_schema_df = history_df.where(col("version") == last_processed_version).select("operationParameters")
+
+    # Get the schema of the latest version
+    latest_schema_df = history_df.orderBy(col("version").desc()).limit(1).select("operationParameters")
+
+    # Check if the schema has changed by comparing the operationParameters
+    schema_changed = last_schema_df.collect()[0] != latest_schema_df.collect()[0]
+    
+    return schema_changed
+
+# Use the function in your main logic to determine if a job should be triggered
+if __name__ == "__main__":
+    # ... Your existing code for spark session and variables ...
+
+    latest_version = get_latest_version(delta_table_path)
+    last_processed_version = get_last_processed_info(tablename)
+
+    # Check for schema changes
+    schema_changed = has_schema_changed(spark, delta_table_path, last_processed_version)
+    
+    if latest_version is not None:
+        if (latest_version > last_processed_version) or schema_changed:
+            # Trigger job and process schema changes
+            print("Changes detected in data or schema. Triggering job...")
+            # ... Code to trigger the Databricks job ...
+        else:
+            print("No changes since the last run. Job will not be triggered.")
+    else:
+        print("Unable to determine the latest version or timestamp of the delta table.")
+    
+    spark.stop()
